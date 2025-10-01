@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
@@ -19,11 +19,10 @@ export default function GetStartedScreen({ navigation }: any) {
       <View style={styles.content}>
         {/* Hero Image */}
         <View style={styles.imageContainer}>
-          <Image
-            source={require('../../../assets/images/get-started-hero.png')} // TODO: Add actual image
-            style={styles.heroImage}
-            resizeMode="contain"
-          />
+          <View style={styles.heroImageContainer}>
+            <Text style={styles.heroEmoji}>🚗</Text>
+            <Text style={styles.heroText}>Welcome to Mova</Text>
+          </View>
         </View>
 
         {/* Content */}
@@ -74,9 +73,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  heroImage: {
+  heroImageContainer: {
     width: width * 0.8,
     height: 200,
+    backgroundColor: '#f0f8ff',
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroEmoji: {
+    fontSize: 80,
+    marginBottom: 16,
+  },
+  heroText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    fontFamily: 'Montserrat-Bold',
   },
   textContainer: {
     flex: 0.3,

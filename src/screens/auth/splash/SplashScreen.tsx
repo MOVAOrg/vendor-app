@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 /**
@@ -23,11 +23,9 @@ export default function SplashScreen({ navigation }: any) {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         {/* App Logo */}
-        <Image
-          source={require('../../../assets/images/logo.png')} // TODO: Add actual logo
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        <View style={styles.logoContainer}>
+          <Text style={styles.logoText}>🚗</Text>
+        </View>
 
         {/* App Name */}
         <Text style={styles.appName}>Mova Vendor</Text>
@@ -54,10 +52,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  logo: {
+  logoContainer: {
     width: 120,
     height: 120,
+    borderRadius: 60,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 20,
+  },
+  logoText: {
+    fontSize: 60,
   },
   appName: {
     fontSize: 28,

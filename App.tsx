@@ -1,19 +1,21 @@
+import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 
-// Import the main app navigator
-import { AppNavigator } from './src/navigation/AppNavigator';
+// Import the demo navigator for showcasing all available screens
+import { DemoNavigator } from './src/navigation/DemoNavigator';
 
 /**
  * Main App Component
  * Entry point for the MovaVendorApp
- * Sets up the main navigation structure
+ * Currently displays the demo navigator to showcase all available screens
+ * Similar to Flutter's main.dart for demo purposes
  */
 export default function App() {
   return (
-    <>
+    <NavigationContainer>
       <StatusBar style="auto" />
-      <AppNavigator />
-    </>
+      <DemoNavigator />
+    </NavigationContainer>
   );
 }

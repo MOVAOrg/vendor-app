@@ -1,4 +1,4 @@
-import { ThemedView } from '@/components/ThemedView';
+import { ThemedView } from '../../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
 import NetInfo from '@react-native-community/netinfo';
 import React, { useEffect, useState } from 'react';
