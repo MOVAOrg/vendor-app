@@ -1,663 +1,867 @@
-import { ThemedView } from '../../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
+    Animated,
+    Dimensions,
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * Withdraw Screen - Request money withdrawal to bank account
- * Allows vendors to withdraw their earnings to their registered bank account
- */
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { Input } from '../../../components/ui/Input';
+import { BorderRadius, BrandColors, Spacing, Typography } from '../../../constants/brandTheme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 export default function WithdrawScreen({ navigation }: any) {
-  const [availableBalance, setAvailableBalance] = useState(45680);
-  const [pendingBalance, setPendingBalance] = useState(12450);
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [selectedAccount, setSelectedAccount] = useState(null);
-  const [bankAccounts, setBankAccounts] = useState([
+  const [formData, setFormData] = useState({
+    amount: '',
+    bankAccount: '',
+    accountHolderName: '',
+    ifscCode: '',
+    purpose: 'business',
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+  const steps = [
+    { title: 'Amount', icon: 'cash' },
+    { title: 'Account', icon: 'card' },
+    { title: 'Confirm', icon: 'checkmark' },
+  ];
+
+  const bankAccounts = [
     {
       id: '1',
       bankName: 'HDFC Bank',
       accountNumber: '****1234',
-      accountHolderName: 'John Doe',
+      accountHolderName: 'Rajesh Kumar',
       ifscCode: 'HDFC0001234',
       isDefault: true,
-      verified: true,
     },
     {
       id: '2',
       bankName: 'ICICI Bank',
       accountNumber: '****5678',
-      accountHolderName: 'John Doe',
+      accountHolderName: 'Rajesh Kumar',
       ifscCode: 'ICIC0005678',
       isDefault: false,
-      verified: true,
     },
-  ]);
-  const [withdrawHistory, setWithdrawHistory] = useState([
-    {
-      id: '1',
-      amount: 25000,
-      status: 'completed',
-      requestedDate: '2025-01-15',
-      processedDate: '2025-01-16',
-      bankAccount: 'HDFC Bank ****1234',
-      transactionId: 'TXN123456789',
-    },
-    {
-      id: '2',
-      amount: 15000,
-      status: 'pending',
-      requestedDate: '2025-01-18',
-      processedDate: null,
-      bankAccount: 'HDFC Bank ****1234',
-      transactionId: null,
-    },
-    {
-      id: '3',
-      amount: 20000,
-      status: 'completed',
-      requestedDate: '2025-01-10',
-      processedDate: '2025-01-11',
-      bankAccount: 'ICICI Bank ****5678',
-      transactionId: 'TXN987654321',
-    },
-  ]);
+  ];
+
+  const quickAmounts = [5000, 10000, 25000, 50000];
+
+  const withdrawalData = {
+    availableBalance: 100000,
+    pendingAmount: 25000,
+    lastWithdrawal: '2024-02-15',
+    nextWithdrawal: '2024-03-15',
+    minWithdrawal: 1000,
+    maxWithdrawal: 50000,
+  };
 
   useEffect(() => {
-    loadWithdrawData();
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
 
-  const loadWithdrawData = async () => {
-    try {
-      // TODO: Implement actual API call to fetch withdraw data
-      console.log('Loading withdraw data...');
-    } catch (error) {
-      console.error('Error loading withdraw data:', error);
-    }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `₹${amount.toLocaleString()}`;
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return '#34C759';
-      case 'pending':
-        return '#FF9500';
-      case 'failed':
-        return '#FF3B30';
-      default:
-        return '#666';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'checkmark-circle';
-      case 'pending':
-        return 'time-outline';
-      case 'failed':
-        return 'close-circle';
-      default:
-        return 'help-circle';
-    }
-  };
-
-  const handleAmountInput = (text: string) => {
-    // Remove non-numeric characters
-    const numericText = text.replace(/[^0-9]/g, '');
-    setWithdrawAmount(numericText);
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleQuickAmount = (amount: number) => {
-    setWithdrawAmount(amount.toString());
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setFormData(prev => ({ ...prev, amount: amount.toString() }));
   };
 
-  const handleWithdraw = () => {
-    const amount = parseInt(withdrawAmount);
+  const handleBankAccountSelect = (account: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setFormData(prev => ({
+      ...prev,
+      bankAccount: account.id,
+      accountHolderName: account.accountHolderName,
+      ifscCode: account.ifscCode,
+    }));
+  };
 
-    if (!amount || amount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid withdrawal amount.');
-      return;
+  const handleNext = () => {
+    if (currentStep < steps.length - 1) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setCurrentStep(currentStep + 1);
+    } else {
+      handleSubmit();
     }
+  };
 
-    if (amount < 500) {
-      Alert.alert('Minimum Amount', 'Minimum withdrawal amount is ₹500.');
-      return;
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setCurrentStep(currentStep - 1);
     }
+  };
 
-    if (amount > availableBalance) {
-      Alert.alert('Insufficient Balance', 'You cannot withdraw more than your available balance.');
-      return;
-    }
+  const handleSubmit = async () => {
+    setIsLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    if (!selectedAccount) {
-      Alert.alert('Select Account', 'Please select a bank account for withdrawal.');
-      return;
-    }
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-    Alert.alert(
-      'Confirm Withdrawal',
-      `Are you sure you want to withdraw ${formatCurrency(amount)} to ${selectedAccount.bankName} ${selectedAccount.accountNumber}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: () => {
-            // TODO: Implement actual withdrawal API call
-            console.log('Processing withdrawal:', { amount, account: selectedAccount });
-
-            Alert.alert(
-              'Withdrawal Requested',
-              'Your withdrawal request has been submitted. It will be processed within 1-2 business days.',
-              [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    setWithdrawAmount('');
-                    navigation.goBack();
-                  },
-                },
-              ]
-            );
+      Alert.alert(
+        'Withdrawal Request Submitted',
+        'Your withdrawal request has been submitted successfully. You will receive the amount within 2-3 business days.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('WalletScreen'),
           },
-        },
-      ]
-    );
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to process withdrawal request. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleAddBankAccount = () => {
-    navigation.navigate('AddBankAccountScreen');
+  const handleBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.goBack();
   };
 
-  const renderBankAccount = (account: any) => (
-    <TouchableOpacity
-      key={account.id}
-      style={[
-        styles.bankAccountCard,
-        selectedAccount?.id === account.id && styles.selectedBankAccount,
-      ]}
-      onPress={() => setSelectedAccount(account)}
-    >
-      <View style={styles.bankAccountHeader}>
-        <View style={styles.bankInfo}>
-          <Text style={styles.bankName}>{account.bankName}</Text>
-          <Text style={styles.accountNumber}>{account.accountNumber}</Text>
-          <Text style={styles.accountHolder}>{account.accountHolderName}</Text>
-        </View>
-        <View style={styles.bankAccountActions}>
-          {account.isDefault && (
-            <View style={styles.defaultBadge}>
-              <Text style={styles.defaultText}>Default</Text>
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 0:
+        return (
+          <View style={styles.stepContent}>
+            {/* Balance Info */}
+            <Card variant="elevated" size="md" style={styles.balanceCard}>
+              <View style={styles.balanceHeader}>
+                <Text style={styles.balanceTitle}>Available Balance</Text>
+                <Ionicons name="wallet" size={24} color={BrandColors.accent} />
+              </View>
+              <Text style={styles.balanceAmount}>₹{withdrawalData.availableBalance.toLocaleString()}</Text>
+              <Text style={styles.balanceNote}>
+                Pending amount: ₹{withdrawalData.pendingAmount.toLocaleString()}
+              </Text>
+            </Card>
+
+            {/* Amount Input */}
+            <Input
+              label="Withdrawal Amount"
+              value={formData.amount}
+              onChangeText={(value) => handleInputChange('amount', value)}
+              placeholder="Enter amount"
+              leftIcon="cash"
+              keyboardType="numeric"
+              containerStyle={styles.input}
+            />
+
+            {/* Quick Amount Buttons */}
+            <Text style={styles.quickAmountTitle}>Quick Amount</Text>
+            <View style={styles.quickAmountGrid}>
+              {quickAmounts.map((amount) => (
+                <TouchableOpacity
+                  key={amount}
+                  style={[
+                    styles.quickAmountButton,
+                    formData.amount === amount.toString() && styles.quickAmountButtonSelected,
+                  ]}
+                  onPress={() => handleQuickAmount(amount)}
+                >
+                  <Text style={[
+                    styles.quickAmountText,
+                    formData.amount === amount.toString() && styles.quickAmountTextSelected,
+                  ]}>
+                    ₹{amount.toLocaleString()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          )}
-          <View style={styles.radioButton}>
-            {selectedAccount?.id === account.id && (
-              <View style={styles.radioButtonSelected} />
-            )}
-          </View>
-        </View>
-      </View>
-      {account.verified && (
-        <View style={styles.verifiedBadge}>
-          <Ionicons name="checkmark-circle" size={16} color="#34C759" />
-          <Text style={styles.verifiedText}>Verified</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
 
-  const renderWithdrawHistoryItem = (item: any) => (
-    <View key={item.id} style={styles.historyItem}>
-      <View style={styles.historyIcon}>
-        <Ionicons
-          name={getStatusIcon(item.status)}
-          size={20}
-          color={getStatusColor(item.status)}
-        />
-      </View>
-      <View style={styles.historyDetails}>
-        <Text style={styles.historyAmount}>{formatCurrency(item.amount)}</Text>
-        <Text style={styles.historyBank}>{item.bankAccount}</Text>
-        <Text style={styles.historyDate}>
-          Requested: {item.requestedDate}
-          {item.processedDate && ` • Processed: ${item.processedDate}`}
-        </Text>
-        {item.transactionId && (
-          <Text style={styles.historyTransaction}>TXN: {item.transactionId}</Text>
-        )}
-      </View>
-      <View style={styles.historyStatus}>
-        <Text style={[
-          styles.historyStatusText,
-          { color: getStatusColor(item.status) }
-        ]}>
-          {item.status.toUpperCase()}
-        </Text>
-      </View>
-    </View>
-  );
+            {/* Withdrawal Limits */}
+            <Card variant="outlined" size="md" style={styles.limitsCard}>
+              <Text style={styles.limitsTitle}>Withdrawal Limits</Text>
+              <View style={styles.limitsRow}>
+                <Text style={styles.limitsLabel}>Minimum:</Text>
+                <Text style={styles.limitsValue}>₹{withdrawalData.minWithdrawal}</Text>
+              </View>
+              <View style={styles.limitsRow}>
+                <Text style={styles.limitsLabel}>Maximum:</Text>
+                <Text style={styles.limitsValue}>₹{withdrawalData.maxWithdrawal}</Text>
+              </View>
+            </Card>
+          </View>
+        );
+
+      case 1:
+        return (
+          <View style={styles.stepContent}>
+            <Text style={styles.bankTitle}>Select Bank Account</Text>
+
+            {bankAccounts.map((account) => (
+              <TouchableOpacity
+                key={account.id}
+                style={[
+                  styles.bankAccountItem,
+                  formData.bankAccount === account.id && styles.bankAccountItemSelected,
+                ]}
+                onPress={() => handleBankAccountSelect(account)}
+              >
+                <View style={styles.bankAccountLeft}>
+                  <View style={[
+                    styles.bankIcon,
+                    { backgroundColor: `${BrandColors.primary}20` },
+                  ]}>
+                    <Ionicons name="card" size={20} color={BrandColors.primary} />
+                  </View>
+
+                  <View style={styles.bankAccountInfo}>
+                    <Text style={styles.bankName}>{account.bankName}</Text>
+                    <Text style={styles.bankAccountNumber}>{account.accountNumber}</Text>
+                    <Text style={styles.bankAccountHolder}>{account.accountHolderName}</Text>
+                    {account.isDefault && (
+                      <View style={styles.defaultBadge}>
+                        <Text style={styles.defaultBadgeText}>Default</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.bankAccountRight}>
+                  {formData.bankAccount === account.id && (
+                    <Ionicons name="checkmark-circle" size={24} color={BrandColors.accent} />
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity style={styles.addAccountButton}>
+              <LinearGradient
+                colors={[BrandColors.dot, BrandColors.accent]}
+                style={styles.addAccountGradient}
+              >
+                <Ionicons name="add" size={20} color={BrandColors.secondary} />
+                <Text style={styles.addAccountText}>Add New Account</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        );
+
+      case 2:
+        return (
+          <View style={styles.stepContent}>
+            <Card variant="elevated" size="md" style={styles.confirmationCard}>
+              <Text style={styles.confirmationTitle}>Withdrawal Summary</Text>
+
+              <View style={styles.confirmationRow}>
+                <Text style={styles.confirmationLabel}>Amount:</Text>
+                <Text style={styles.confirmationValue}>₹{formData.amount}</Text>
+              </View>
+
+              <View style={styles.confirmationRow}>
+                <Text style={styles.confirmationLabel}>Bank Account:</Text>
+                <Text style={styles.confirmationValue}>
+                  {bankAccounts.find(acc => acc.id === formData.bankAccount)?.bankName}
+                </Text>
+              </View>
+
+              <View style={styles.confirmationRow}>
+                <Text style={styles.confirmationLabel}>Account Number:</Text>
+                <Text style={styles.confirmationValue}>
+                  {bankAccounts.find(acc => acc.id === formData.bankAccount)?.accountNumber}
+                </Text>
+              </View>
+
+              <View style={styles.confirmationRow}>
+                <Text style={styles.confirmationLabel}>Processing Fee:</Text>
+                <Text style={styles.confirmationValue}>₹0</Text>
+              </View>
+
+              <View style={styles.confirmationDivider} />
+
+              <View style={styles.confirmationRow}>
+                <Text style={styles.confirmationLabel}>Total Amount:</Text>
+                <Text style={[styles.confirmationValue, { color: BrandColors.accent }]}>
+                  ₹{formData.amount}
+                </Text>
+              </View>
+            </Card>
+
+            <Card variant="outlined" size="md" style={styles.infoCard}>
+              <View style={styles.infoContent}>
+                <Ionicons name="information-circle" size={24} color={BrandColors.dot} />
+                <View style={styles.infoText}>
+                  <Text style={styles.infoTitle}>Processing Time</Text>
+                  <Text style={styles.infoSubtitle}>
+                    Withdrawals are processed within 2-3 business days. You will receive a confirmation email once the amount is credited to your account.
+                  </Text>
+                </View>
+              </View>
+            </Card>
+          </View>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const isStepValid = () => {
+    switch (currentStep) {
+      case 0:
+        const amount = parseInt(formData.amount);
+        return amount >= withdrawalData.minWithdrawal && amount <= withdrawalData.maxWithdrawal;
+      case 1:
+        return formData.bankAccount;
+      case 2:
+        return true;
+      default:
+        return false;
+    }
+  };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={BrandColors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Withdraw Money</Text>
-          <View style={styles.placeholder} />
-        </View>
 
-        {/* Balance Cards */}
-        <View style={styles.balanceSection}>
-          <View style={styles.balanceCard}>
-            <View style={styles.balanceHeader}>
-              <Ionicons name="wallet-outline" size={24} color="#34C759" />
-              <Text style={styles.balanceLabel}>Available Balance</Text>
-            </View>
-            <Text style={styles.balanceAmount}>{formatCurrency(availableBalance)}</Text>
-            <Text style={styles.balanceSubtext}>Ready to withdraw</Text>
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>Withdraw Funds</Text>
+            <Text style={styles.subtitle}>
+              Step {currentStep + 1} of {steps.length}: {steps[currentStep].title}
+            </Text>
           </View>
+        </Animated.View>
 
-          <View style={styles.balanceCard}>
-            <View style={styles.balanceHeader}>
-              <Ionicons name="time-outline" size={24} color="#FF9500" />
-              <Text style={styles.balanceLabel}>Pending Balance</Text>
-            </View>
-            <Text style={styles.balanceAmount}>{formatCurrency(pendingBalance)}</Text>
-            <Text style={styles.balanceSubtext}>Processing (1-2 days)</Text>
+        {/* Progress Steps */}
+        <Animated.View
+          style={[
+            styles.progressContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.stepsContainer}>
+            {steps.map((step, index) => (
+              <View key={index} style={styles.stepItem}>
+                <View style={[
+                  styles.stepIcon,
+                  index <= currentStep && styles.stepIconActive,
+                  index < currentStep && styles.stepIconCompleted,
+                ]}>
+                  <Ionicons
+                    name={index < currentStep ? 'checkmark' : step.icon as any}
+                    size={20}
+                    color={index <= currentStep ? BrandColors.secondary : BrandColors.textLight}
+                  />
+                </View>
+                <Text style={[
+                  styles.stepTitle,
+                  index <= currentStep && styles.stepTitleActive,
+                ]}>
+                  {step.title}
+                </Text>
+                {index < steps.length - 1 && (
+                  <View style={[
+                    styles.stepLine,
+                    index < currentStep && styles.stepLineCompleted,
+                  ]} />
+                )}
+              </View>
+            ))}
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Withdraw Amount */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Withdraw Amount</Text>
-          <View style={styles.amountInputContainer}>
-            <Text style={styles.currencySymbol}>₹</Text>
-            <TextInput
-              style={styles.amountInput}
-              value={withdrawAmount}
-              onChangeText={handleAmountInput}
-              placeholder="0"
-              keyboardType="numeric"
-              placeholderTextColor="#C7C7CC"
+        {/* Step Content */}
+        <Animated.View
+          style={[
+            styles.contentContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { translateY: slideAnim },
+                { scale: scaleAnim },
+              ],
+            },
+          ]}
+        >
+          <Card variant="elevated" size="lg" style={styles.formCard}>
+            {renderStepContent()}
+          </Card>
+        </Animated.View>
+
+        {/* Navigation Buttons */}
+        <Animated.View
+          style={[
+            styles.buttonContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.buttonRow}>
+            {currentStep > 0 && (
+              <Button
+                title="Previous"
+                onPress={handlePrevious}
+                variant="outline"
+                size="lg"
+                icon="arrow-back"
+                iconPosition="left"
+                style={styles.previousButton}
+              />
+            )}
+
+            <Button
+              title={currentStep === steps.length - 1 ? 'Submit Request' : 'Next'}
+              onPress={handleNext}
+              variant="primary"
+              size="lg"
+              loading={isLoading}
+              disabled={!isStepValid()}
+              icon={currentStep === steps.length - 1 ? 'checkmark' : 'arrow-forward'}
+              iconPosition="right"
+              style={styles.nextButton}
             />
           </View>
+        </Animated.View>
 
-          {/* Quick Amount Buttons */}
-          <View style={styles.quickAmounts}>
-            <TouchableOpacity
-              style={styles.quickAmountButton}
-              onPress={() => handleQuickAmount(availableBalance * 0.25)}
-            >
-              <Text style={styles.quickAmountText}>25%</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.quickAmountButton}
-              onPress={() => handleQuickAmount(availableBalance * 0.5)}
-            >
-              <Text style={styles.quickAmountText}>50%</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.quickAmountButton}
-              onPress={() => handleQuickAmount(availableBalance * 0.75)}
-            >
-              <Text style={styles.quickAmountText}>75%</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.quickAmountButton}
-              onPress={() => handleQuickAmount(availableBalance)}
-            >
-              <Text style={styles.quickAmountText}>All</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Bank Accounts */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Bank Account</Text>
-            <TouchableOpacity onPress={handleAddBankAccount}>
-              <Text style={styles.addAccountText}>+ Add Account</Text>
-            </TouchableOpacity>
-          </View>
-
-          {bankAccounts.map(renderBankAccount)}
-        </View>
-
-        {/* Withdraw Button */}
-        <View style={styles.withdrawSection}>
-          <TouchableOpacity
-            style={[
-              styles.withdrawButton,
-              (!withdrawAmount || !selectedAccount) && styles.withdrawButtonDisabled,
-            ]}
-            onPress={handleWithdraw}
-            disabled={!withdrawAmount || !selectedAccount}
-          >
-            <Text style={styles.withdrawButtonText}>
-              Withdraw {withdrawAmount ? formatCurrency(parseInt(withdrawAmount)) : '₹0'}
-            </Text>
-          </TouchableOpacity>
-
-          <Text style={styles.withdrawNote}>
-            Withdrawals are processed within 1-2 business days. Processing time may vary based on bank.
-          </Text>
-        </View>
-
-        {/* Withdrawal History */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Withdrawals</Text>
-          {withdrawHistory.map(renderWithdrawHistoryItem)}
-        </View>
-
-        <View style={styles.bottomSpacer} />
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: BrandColors.backgroundPrimary,
   },
   scrollView: {
     flex: 1,
   },
+
+  // Header
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
   },
   backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  placeholder: {
     width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.gray50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
   },
-  balanceSection: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
+  headerContent: {
+    flex: 1,
   },
+  title: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['3xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
+  },
+  subtitle: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
+  },
+
+  // Progress
+  progressContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  stepsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  stepItem: {
+    alignItems: 'center',
+    flex: 1,
+    position: 'relative',
+  },
+  stepIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.gray50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+  },
+  stepIconActive: {
+    backgroundColor: BrandColors.primary,
+  },
+  stepIconCompleted: {
+    backgroundColor: BrandColors.accent,
+  },
+  stepTitle: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textLight,
+    textAlign: 'center',
+  },
+  stepTitleActive: {
+    color: BrandColors.textPrimary,
+    fontWeight: Typography.fontWeight.medium,
+  },
+  stepLine: {
+    position: 'absolute',
+    top: 24,
+    left: '50%',
+    right: '-50%',
+    height: 2,
+    backgroundColor: BrandColors.borderLight,
+    zIndex: -1,
+  },
+  stepLineCompleted: {
+    backgroundColor: BrandColors.accent,
+  },
+
+  // Content
+  contentContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  formCard: {
+    width: '100%',
+  },
+  stepContent: {
+    width: '100%',
+  },
+
+  // Balance Card
   balanceCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: Spacing.lg,
   },
   balanceHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
-  balanceLabel: {
-    fontSize: 16,
-    color: '#666',
-    marginLeft: 8,
-    fontWeight: '500',
+  balanceTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
   },
   balanceAmount: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 4,
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['3xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.accent,
+    marginBottom: Spacing.sm,
   },
-  balanceSubtext: {
-    fontSize: 14,
-    color: '#666',
+  balanceNote: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
   },
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
+
+  // Input
+  input: {
+    marginBottom: Spacing.lg,
   },
-  sectionHeader: {
+
+  // Quick Amount
+  quickAmountTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.md,
+  },
+  quickAmountGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  addAccountText: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '500',
-  },
-  amountInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  currencySymbol: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
-    marginRight: 8,
-  },
-  amountInput: {
-    flex: 1,
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  quickAmounts: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    marginBottom: Spacing.lg,
   },
   quickAmountButton: {
-    backgroundColor: '#F8F9FA',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    flex: 1,
-    marginHorizontal: 4,
+    width: '48%',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: BrandColors.gray50,
     alignItems: 'center',
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: BrandColors.borderLight,
+  },
+  quickAmountButtonSelected: {
+    backgroundColor: BrandColors.primary,
+    borderColor: BrandColors.primary,
   },
   quickAmountText: {
-    fontSize: 14,
-    color: '#007AFF',
-    fontWeight: '500',
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
   },
-  bankAccountCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+  quickAmountTextSelected: {
+    color: BrandColors.secondary,
   },
-  selectedBankAccount: {
-    borderColor: '#007AFF',
+
+  // Limits
+  limitsCard: {
+    marginTop: Spacing.md,
   },
-  bankAccountHeader: {
+  limitsTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.md,
+  },
+  limitsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
   },
-  bankInfo: {
+  limitsLabel: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
+  },
+  limitsValue: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+  },
+
+  // Bank Account
+  bankTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.lg,
+  },
+  bankAccountItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: BrandColors.backgroundCard,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: BrandColors.borderLight,
+  },
+  bankAccountItemSelected: {
+    borderColor: BrandColors.primary,
+    backgroundColor: `${BrandColors.primary}10`,
+  },
+  bankAccountLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  bankIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
+  },
+  bankAccountInfo: {
     flex: 1,
   },
   bankName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 4,
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
   },
-  accountNumber: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
+  bankAccountNumber: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+    marginBottom: Spacing.xs,
   },
-  accountHolder: {
-    fontSize: 14,
-    color: '#666',
-  },
-  bankAccountActions: {
-    alignItems: 'flex-end',
+  bankAccountHolder: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+    marginBottom: Spacing.xs,
   },
   defaultBadge: {
-    backgroundColor: '#34C759',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 8,
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: BrandColors.accent,
   },
-  defaultText: {
-    fontSize: 10,
-    color: '#FFFFFF',
-    fontWeight: '600',
+  defaultBadgeText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.xs,
+    color: BrandColors.secondary,
+    fontWeight: Typography.fontWeight.medium,
   },
-  radioButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#E5E5EA',
-    justifyContent: 'center',
+  bankAccountRight: {
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  radioButtonSelected: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#007AFF',
+
+  // Add Account
+  addAccountButton: {
+    marginTop: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
   },
-  verifiedBadge: {
+  addAccountGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-  },
-  verifiedText: {
-    fontSize: 12,
-    color: '#34C759',
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  withdrawSection: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  withdrawButton: {
-    backgroundColor: '#34C759',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  withdrawButtonDisabled: {
-    backgroundColor: '#E5E5EA',
-  },
-  withdrawButtonText: {
-    fontSize: 18,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  withdrawNote: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  historyItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  historyIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F8F9FA',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
   },
-  historyDetails: {
+  addAccountText: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.secondary,
+    marginLeft: Spacing.sm,
+  },
+
+  // Confirmation
+  confirmationCard: {
+    marginBottom: Spacing.lg,
+  },
+  confirmationTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.lg,
+  },
+  confirmationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+  },
+  confirmationLabel: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
+  },
+  confirmationValue: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+  },
+  confirmationDivider: {
+    height: 1,
+    backgroundColor: BrandColors.borderLight,
+    marginVertical: Spacing.md,
+  },
+
+  // Info Card
+  infoCard: {
+    marginTop: Spacing.md,
+  },
+  infoContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  infoText: {
+    flex: 1,
+    marginLeft: Spacing.md,
+  },
+  infoTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.sm,
+  },
+  infoSubtitle: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+    lineHeight: 20,
+  },
+
+  // Buttons
+  buttonContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  previousButton: {
+    flex: 1,
+    marginRight: Spacing.md,
+  },
+  nextButton: {
     flex: 1,
   },
-  historyAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 4,
-  },
-  historyBank: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  historyDate: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
-  },
-  historyTransaction: {
-    fontSize: 12,
-    color: '#007AFF',
-  },
-  historyStatus: {
-    alignItems: 'flex-end',
-  },
-  historyStatusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  bottomSpacer: {
-    height: 40,
+
+  // Bottom
+  bottomSpacing: {
+    height: Spacing.xl,
   },
 });

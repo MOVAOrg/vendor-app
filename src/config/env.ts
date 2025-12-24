@@ -24,8 +24,12 @@ const validateEnv = () => {
   }
 };
 
-// Run validation
-validateEnv();
+// Run validation only in development and catch any errors
+try {
+  validateEnv();
+} catch (error) {
+  console.warn('Environment validation failed:', error);
+}
 
 /**
  * Environment configuration object

@@ -1,371 +1,739 @@
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * Business Details Screen Component
- * Collects vendor's business information during registration
- * Second step in the registration process
- */
-export default function BusinessDetailsScreen({ navigation, route }: any) {
-  const { personalDetails } = route.params;
+// Define color constants
+const COLORS = {
+  primary: '#00242C',
+  white: '#FFFFFF',
+  gray: '#E5E5E5',
+  lightGray: '#F5F5F5',
+  textSecondary: '#666666',
+};
 
+// Business Types Data
+const BUSINESS_TYPES = [
+  'Individual',
+  'Partnership',
+  'Private Limited',
+  'Public Limited',
+  'LLP',
+  'Sole Proprietorship',
+];
+
+// Indian States and Cities Data
+const STATES_CITIES: { [key: string]: string[] } = {
+  'Andhra Pradesh': ['Visakhapatnam', 'Vijayawada', 'Guntur', 'Nellore', 'Kurnool', 'Tirupati'],
+  'Karnataka': ['Bangalore', 'Mysore', 'Hubli', 'Mangalore', 'Belgaum', 'Gulbarga'],
+  'Kerala': ['Thiruvananthapuram', 'Kochi', 'Kozhikode', 'Thrissur', 'Kannur', 'Kollam'],
+  'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem', 'Tirunelveli'],
+  'Telangana': ['Hyderabad', 'Warangal', 'Nizamabad', 'Khammam', 'Karimnagar', 'Ramagundam'],
+  'Maharashtra': ['Mumbai', 'Pune', 'Nagpur', 'Thane', 'Nashik', 'Aurangabad'],
+  'Gujarat': ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot', 'Bhavnagar', 'Jamnagar'],
+  'Rajasthan': ['Jaipur', 'Jodhpur', 'Udaipur', 'Kota', 'Ajmer', 'Bikaner'],
+  'Delhi': ['New Delhi', 'Central Delhi', 'North Delhi', 'South Delhi', 'East Delhi', 'West Delhi'],
+  'Uttar Pradesh': ['Lucknow', 'Kanpur', 'Agra', 'Varanasi', 'Meerut', 'Allahabad'],
+  'West Bengal': ['Kolkata', 'Howrah', 'Durgapur', 'Asansol', 'Siliguri', 'Bardhaman'],
+  'Haryana': ['Gurugram', 'Faridabad', 'Panipat', 'Ambala', 'Hisar', 'Karnal'],
+  'Punjab': ['Ludhiana', 'Amritsar', 'Jalandhar', 'Patiala', 'Bathinda', 'Mohali'],
+  'Madhya Pradesh': ['Bhopal', 'Indore', 'Gwalior', 'Jabalpur', 'Ujjain', 'Sagar'],
+  'Bihar': ['Patna', 'Gaya', 'Bhagalpur', 'Muzaffarpur', 'Purnia', 'Darbhanga'],
+};
+
+// Custom Dropdown Component
+const CustomDropdown = ({ visible, onClose, onSelect, options, selectedValue, title }: any) => {
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <TouchableOpacity
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <View style={styles.dropdownContainer}>
+          {/* Dropdown Header */}
+          <View style={styles.dropdownHeader}>
+            <Text style={styles.dropdownTitle}>{title}</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Dropdown Options */}
+          <ScrollView
+            style={styles.dropdownScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            {options.map((option: string) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.dropdownItem,
+                  selectedValue === option && styles.dropdownItemSelected
+                ]}
+                onPress={() => {
+                  onSelect(option);
+                  onClose();
+                }}
+              >
+                <Text style={[
+                  styles.dropdownItemText,
+                  selectedValue === option && styles.dropdownItemTextSelected
+                ]}>
+                  {option}
+                </Text>
+                {selectedValue === option && (
+                  <Ionicons name="checkmark" size={20} color={COLORS.white} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
+
+export default function BusinessDetailsScreen({ navigation }: any) {
+  // Form state management
   const [formData, setFormData] = useState({
     businessName: '',
     businessType: '',
-    tradeLicenseNumber: '',
-    businessEmail: '',
-    businessPhone: '',
+    registrationNumber: '',
+    gstNumber: '', // Optional field
+    panNumber: '',
+    businessState: '',
+    businessCity: '',
+    businessAddress: '',
+    businessPincode: '',
     yearsInBusiness: '',
-    numberOfVehicles: '',
-    businessDescription: '',
+    fleetSize: '',
   });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  // Dropdown state management
+  const [showBusinessTypeDropdown, setShowBusinessTypeDropdown] = useState(false);
+  const [showStateDropdown, setShowStateDropdown] = useState(false);
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
 
-  const businessTypes = [
-    { value: 'individual', label: 'Individual' },
-    { value: 'company', label: 'Company' },
-    { value: 'partnership', label: 'Partnership' },
-    { value: 'llc', label: 'LLC' },
-  ];
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.businessName.trim()) {
-      newErrors.businessName = 'Business name is required';
-    }
-
-    if (!formData.businessType.trim()) {
-      newErrors.businessType = 'Business type is required';
-    }
-
-    if (!formData.tradeLicenseNumber.trim()) {
-      newErrors.tradeLicenseNumber = 'Trade license number is required';
-    }
-
-    if (!formData.businessEmail.trim()) {
-      newErrors.businessEmail = 'Business email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.businessEmail)) {
-      newErrors.businessEmail = 'Please enter a valid email';
-    }
-
-    if (!formData.businessPhone.trim()) {
-      newErrors.businessPhone = 'Business phone is required';
-    }
-
-    if (!formData.yearsInBusiness.trim()) {
-      newErrors.yearsInBusiness = 'Years in business is required';
-    }
-
-    if (!formData.numberOfVehicles.trim()) {
-      newErrors.numberOfVehicles = 'Number of vehicles is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
+  // Handle input changes
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
+  };
+
+  // Handle state selection - reset city when state changes
+  const handleStateSelect = (state: string) => {
+    setFormData(prev => ({
+      ...prev,
+      businessState: state,
+      businessCity: '', // Reset city when state changes
+    }));
+  };
+
+  // Auto-detect location by pincode
+  const handlePincodeChange = async (pincode: string) => {
+    handleInputChange('businessPincode', pincode);
+
+    // Auto-detect location when pincode is 6 digits
+    if (pincode.length === 6) {
+      try {
+        // Simulate API call to fetch location by pincode
+        // In production, use actual pincode API
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Mock location detection - replace with actual API
+        Alert.alert(
+          'Location Detected',
+          `Pincode ${pincode} detected. Please verify the state and city.`
+        );
+      } catch (error) {
+        console.error('Pincode detection failed:', error);
+      }
     }
   };
 
-  const handleContinue = () => {
-    if (validateForm()) {
-      const registrationData = {
-        ...personalDetails,
-        ...formData,
-      };
-      navigation.navigate('LocationDetailsScreen', { registrationData });
+  // Get cities for selected state
+  const getCitiesForState = () => {
+    if (!formData.businessState) return [];
+    return STATES_CITIES[formData.businessState] || [];
+  };
+
+  // Form submission handler
+  const handleSubmit = async () => {
+    setIsLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Navigate to next screen
+      navigation.navigate('LocationDetailsScreen');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save business details. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  // Back button handler
+  const handleBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.goBack();
+  };
+
+  // Form validation - Relaxed for demo purposes
+  // Only require business name to continue (for testing)
+  const isFormValid = () => {
+    return formData.businessName.trim().length > 0;
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
-          {/* Header */}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header with back button */}
           <View style={styles.header}>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Title Section */}
+          <View style={styles.titleContainer}>
             <Text style={styles.title}>Business Details</Text>
             <Text style={styles.subtitle}>Tell us about your business</Text>
           </View>
 
-          {/* Form Fields */}
-          <View style={styles.formContainer}>
-            {/* Business Name */}
+          {/* Business Information Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Business Information</Text>
+
+            {/* Business Name Input */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Business Name *</Text>
+              <Text style={styles.label}>Business Name</Text>
               <TextInput
-                style={[styles.input, errors.businessName && styles.inputError]}
+                style={styles.input}
+                placeholder="Enter your business name"
+                placeholderTextColor={COLORS.textSecondary}
                 value={formData.businessName}
                 onChangeText={(value) => handleInputChange('businessName', value)}
-                placeholder="Enter business name"
                 autoCapitalize="words"
+                returnKeyType="next"
               />
-              {errors.businessName && <Text style={styles.errorText}>{errors.businessName}</Text>}
             </View>
 
-            {/* Business Type */}
+            {/* Business Type Dropdown */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Business Type *</Text>
-              <View style={styles.businessTypeContainer}>
-                {businessTypes.map((type) => (
-                  <TouchableOpacity
-                    key={type.value}
-                    style={[
-                      styles.businessTypeOption,
-                      formData.businessType === type.value && styles.businessTypeOptionSelected,
-                    ]}
-                    onPress={() => handleInputChange('businessType', type.value)}
-                  >
-                    <Text
-                      style={[
-                        styles.businessTypeOptionText,
-                        formData.businessType === type.value && styles.businessTypeOptionTextSelected,
-                      ]}
-                    >
-                      {type.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {errors.businessType && <Text style={styles.errorText}>{errors.businessType}</Text>}
+              <Text style={styles.label}>Business Type</Text>
+              <TouchableOpacity
+                style={styles.dropdownButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowBusinessTypeDropdown(true);
+                }}
+              >
+                <Text style={[
+                  styles.dropdownButtonText,
+                  !formData.businessType && styles.placeholderText
+                ]}>
+                  {formData.businessType || 'Select business type'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
             </View>
 
-            {/* Trade License */}
+            {/* Registration Number Input */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Trade License Number *</Text>
+              <Text style={styles.label}>Registration Number</Text>
               <TextInput
-                style={[styles.input, errors.tradeLicenseNumber && styles.inputError]}
-                value={formData.tradeLicenseNumber}
-                onChangeText={(value) => handleInputChange('tradeLicenseNumber', value)}
-                placeholder="Enter trade license number"
+                style={styles.input}
+                placeholder="Enter registration number"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.registrationNumber}
+                onChangeText={(value) => handleInputChange('registrationNumber', value)}
                 autoCapitalize="characters"
+                returnKeyType="next"
               />
-              {errors.tradeLicenseNumber && <Text style={styles.errorText}>{errors.tradeLicenseNumber}</Text>}
             </View>
 
-            {/* Business Contact */}
-            <View style={styles.row}>
-              <View style={styles.halfWidth}>
-                <Text style={styles.label}>Business Email *</Text>
-                <TextInput
-                  style={[styles.input, errors.businessEmail && styles.inputError]}
-                  value={formData.businessEmail}
-                  onChangeText={(value) => handleInputChange('businessEmail', value)}
-                  placeholder="business@email.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-                {errors.businessEmail && <Text style={styles.errorText}>{errors.businessEmail}</Text>}
-              </View>
-
-              <View style={styles.halfWidth}>
-                <Text style={styles.label}>Business Phone *</Text>
-                <TextInput
-                  style={[styles.input, errors.businessPhone && styles.inputError]}
-                  value={formData.businessPhone}
-                  onChangeText={(value) => handleInputChange('businessPhone', value)}
-                  placeholder="+971 50 123 4567"
-                  keyboardType="phone-pad"
-                />
-                {errors.businessPhone && <Text style={styles.errorText}>{errors.businessPhone}</Text>}
-              </View>
-            </View>
-
-            {/* Business Experience */}
-            <View style={styles.row}>
-              <View style={styles.halfWidth}>
-                <Text style={styles.label}>Years in Business *</Text>
-                <TextInput
-                  style={[styles.input, errors.yearsInBusiness && styles.inputError]}
-                  value={formData.yearsInBusiness}
-                  onChangeText={(value) => handleInputChange('yearsInBusiness', value)}
-                  placeholder="e.g., 5"
-                  keyboardType="numeric"
-                />
-                {errors.yearsInBusiness && <Text style={styles.errorText}>{errors.yearsInBusiness}</Text>}
-              </View>
-
-              <View style={styles.halfWidth}>
-                <Text style={styles.label}>Number of Vehicles *</Text>
-                <TextInput
-                  style={[styles.input, errors.numberOfVehicles && styles.inputError]}
-                  value={formData.numberOfVehicles}
-                  onChangeText={(value) => handleInputChange('numberOfVehicles', value)}
-                  placeholder="e.g., 10"
-                  keyboardType="numeric"
-                />
-                {errors.numberOfVehicles && <Text style={styles.errorText}>{errors.numberOfVehicles}</Text>}
-              </View>
-            </View>
-
-            {/* Business Description */}
+            {/* GST Number Input - Optional */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Business Description</Text>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>GST Number</Text>
+                <Text style={styles.optionalTag}>Optional</Text>
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter GST number (optional)"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.gstNumber}
+                onChangeText={(value) => handleInputChange('gstNumber', value)}
+                autoCapitalize="characters"
+                returnKeyType="next"
+              />
+            </View>
+
+            {/* PAN Number Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>PAN Number</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter PAN number"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.panNumber}
+                onChangeText={(value) => handleInputChange('panNumber', value)}
+                autoCapitalize="characters"
+                maxLength={10}
+                returnKeyType="next"
+              />
+            </View>
+          </View>
+
+          {/* Business Address Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Business Address</Text>
+
+            {/* State Dropdown - First */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>State</Text>
+              <TouchableOpacity
+                style={styles.dropdownButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowStateDropdown(true);
+                }}
+              >
+                <Text style={[
+                  styles.dropdownButtonText,
+                  !formData.businessState && styles.placeholderText
+                ]}>
+                  {formData.businessState || 'Select state'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* City Dropdown - Based on State */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>City</Text>
+              <TouchableOpacity
+                style={[
+                  styles.dropdownButton,
+                  !formData.businessState && styles.dropdownButtonDisabled
+                ]}
+                onPress={() => {
+                  if (formData.businessState) {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowCityDropdown(true);
+                  } else {
+                    Alert.alert('Select State', 'Please select a state first');
+                  }
+                }}
+                disabled={!formData.businessState}
+              >
+                <Text style={[
+                  styles.dropdownButtonText,
+                  !formData.businessCity && styles.placeholderText,
+                  !formData.businessState && styles.disabledText
+                ]}>
+                  {formData.businessCity || 'Select city'}
+                </Text>
+                <Ionicons
+                  name="chevron-down"
+                  size={20}
+                  color={formData.businessState ? COLORS.textSecondary : COLORS.gray}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Pincode Input - Auto-detect */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Pincode</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter pincode"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.businessPincode}
+                onChangeText={handlePincodeChange}
+                keyboardType="numeric"
+                maxLength={6}
+                returnKeyType="next"
+              />
+            </View>
+
+            {/* Address Input - After State/City/Pincode */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Address</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
-                value={formData.businessDescription}
-                onChangeText={(value) => handleInputChange('businessDescription', value)}
-                placeholder="Describe your car rental business..."
+                placeholder="Enter business address"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.businessAddress}
+                onChangeText={(value) => handleInputChange('businessAddress', value)}
                 multiline
-                numberOfLines={4}
+                numberOfLines={3}
                 textAlignVertical="top"
+                returnKeyType="next"
               />
             </View>
           </View>
 
-          {/* Action Buttons */}
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <Text style={styles.backButtonText}>Back</Text>
-            </TouchableOpacity>
+          {/* Business Experience Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Business Experience</Text>
 
-            <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-              <Text style={styles.continueButtonText}>Continue</Text>
+            {/* Years and Fleet Size Row */}
+            <View style={styles.row}>
+              <View style={[styles.inputGroup, styles.halfWidth]}>
+                <Text style={styles.label}>Years in Business</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Years"
+                  placeholderTextColor={COLORS.textSecondary}
+                  value={formData.yearsInBusiness}
+                  onChangeText={(value) => handleInputChange('yearsInBusiness', value)}
+                  keyboardType="numeric"
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={[styles.inputGroup, styles.halfWidth]}>
+                <Text style={styles.label}>Current Fleet Size</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Vehicles"
+                  placeholderTextColor={COLORS.textSecondary}
+                  value={formData.fleetSize}
+                  onChangeText={(value) => handleInputChange('fleetSize', value)}
+                  keyboardType="numeric"
+                  returnKeyType="done"
+                />
+              </View>
+            </View>
+
+            {/* Info Box */}
+            <View style={styles.infoBox}>
+              <Ionicons name="information-circle-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.infoText}>
+                We'll verify your business documents before approval
+              </Text>
+            </View>
+          </View>
+
+          {/* Continue Button */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[
+                styles.continueButton,
+                (!isFormValid() || isLoading) && styles.continueButtonDisabled
+              ]}
+              onPress={handleSubmit}
+              disabled={!isFormValid() || isLoading}
+            >
+              <Text style={styles.continueButtonText}>
+                {isLoading ? 'Saving...' : 'Continue'}
+              </Text>
+              {!isLoading && (
+                <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+              )}
             </TouchableOpacity>
           </View>
-        </View>
-      </ScrollView>
+
+          {/* Bottom Spacing for keyboard */}
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Business Type Dropdown Modal */}
+      <CustomDropdown
+        visible={showBusinessTypeDropdown}
+        onClose={() => setShowBusinessTypeDropdown(false)}
+        onSelect={(value: string) => {
+          handleInputChange('businessType', value);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+        options={BUSINESS_TYPES}
+        selectedValue={formData.businessType}
+        title="Select Business Type"
+      />
+
+      {/* State Dropdown Modal */}
+      <CustomDropdown
+        visible={showStateDropdown}
+        onClose={() => setShowStateDropdown(false)}
+        onSelect={(value: string) => {
+          handleStateSelect(value);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+        options={Object.keys(STATES_CITIES)}
+        selectedValue={formData.businessState}
+        title="Select State"
+      />
+
+      {/* City Dropdown Modal */}
+      <CustomDropdown
+        visible={showCityDropdown}
+        onClose={() => setShowCityDropdown(false)}
+        onSelect={(value: string) => {
+          handleInputChange('businessCity', value);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+        options={getCitiesForState()}
+        selectedValue={formData.businessCity}
+        title={`Select City in ${formData.businessState}`}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // Container Styles
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.white,
+  },
+  keyboardView: {
+    flex: 1,
   },
   scrollView: {
     flex: 1,
   },
-  content: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
   },
+
+  // Header Styles
   header: {
-    marginBottom: 32,
+    paddingVertical: 16,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.lightGray,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Title Styles
+  titleContainer: {
+    marginTop: 8,
+    marginBottom: 32,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#1A1A1A',
+    color: COLORS.primary,
     marginBottom: 8,
-    fontFamily: 'Montserrat-Bold',
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666666',
-    fontFamily: 'OpenSans-Regular',
+    color: COLORS.textSecondary,
+    lineHeight: 24,
   },
-  formContainer: {
+
+  // Section Styles
+  section: {
     marginBottom: 32,
   },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginBottom: 16,
   },
-  halfWidth: {
-    width: '48%',
-  },
+
+  // Input Group Styles
   inputGroup: {
     marginBottom: 20,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: COLORS.primary,
     marginBottom: 8,
-    fontFamily: 'OpenSans-SemiBold',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  optionalTag: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    height: 56,
+    backgroundColor: COLORS.white,
     borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: COLORS.gray,
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    fontSize: 16,
-    backgroundColor: '#F8F9FA',
-    fontFamily: 'OpenSans-Regular',
-  },
-  inputError: {
-    borderColor: '#FF3B30',
-  },
-  errorText: {
-    color: '#FF3B30',
-    fontSize: 14,
-    marginTop: 4,
-    fontFamily: 'OpenSans-Regular',
+    fontSize: 15,
+    color: COLORS.primary,
   },
   textArea: {
     height: 100,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
-  businessTypeContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  businessTypeOption: {
-    paddingVertical: 12,
+
+  // Dropdown Button Styles
+  dropdownButton: {
+    height: 56,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: COLORS.gray,
     paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    backgroundColor: '#F8F9FA',
-    minWidth: '45%',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  businessTypeOptionSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E3F2FD',
+  dropdownButtonDisabled: {
+    backgroundColor: COLORS.lightGray,
+    opacity: 0.6,
   },
-  businessTypeOptionText: {
-    fontSize: 14,
-    color: '#666666',
-    fontFamily: 'OpenSans-Regular',
+  dropdownButtonText: {
+    fontSize: 15,
+    color: COLORS.primary,
   },
-  businessTypeOptionTextSelected: {
-    color: '#007AFF',
-    fontWeight: '600',
-    fontFamily: 'OpenSans-SemiBold',
+  placeholderText: {
+    color: COLORS.textSecondary,
   },
-  buttonContainer: {
+  disabledText: {
+    color: COLORS.gray,
+  },
+
+  // Row Layout Styles
+  row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 16,
+    gap: 12,
   },
-  backButton: {
+  halfWidth: {
     flex: 1,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    backgroundColor: '#F8F9FA',
   },
-  backButtonText: {
-    color: '#666666',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'OpenSans-SemiBold',
+
+  // Info Box Styles
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 8,
+    gap: 12,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.primary,
+    lineHeight: 20,
+  },
+
+  // Button Styles
+  buttonContainer: {
+    marginTop: 16,
+    marginBottom: 24,
   },
   continueButton: {
-    flex: 1,
-    backgroundColor: '#007AFF',
-    paddingVertical: 16,
-    borderRadius: 12,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    height: 56,
+    borderRadius: 12,
+    gap: 8,
+  },
+  continueButtonDisabled: {
+    backgroundColor: COLORS.gray,
+    opacity: 0.5,
   },
   continueButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'Montserrat-SemiBold',
+    color: COLORS.white,
+  },
+
+  // Bottom Spacing
+  bottomSpacing: {
+    height: 40,
+  },
+
+  // Modal & Dropdown Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  dropdownContainer: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '70%',
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray,
+  },
+  dropdownTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  dropdownScroll: {
+    maxHeight: 400,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  dropdownItemSelected: {
+    backgroundColor: COLORS.primary,
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: COLORS.primary,
+  },
+  dropdownItemTextSelected: {
+    color: COLORS.white,
+    fontWeight: '600',
   },
 });

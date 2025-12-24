@@ -1,130 +1,119 @@
-import { ThemedView } from '../../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
 import {
     Alert,
+    KeyboardAvoidingView,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * Document Upload Screen - Upload required verification documents
- * Part of vendor registration process for identity verification
- */
+// Define color constants
+const COLORS = {
+  primary: '#00242C',
+  white: '#FFFFFF',
+  gray: '#E5E5E5',
+  lightGray: '#F5F5F5',
+  textSecondary: '#666666',
+  success: '#10B981',
+  error: '#EF4444',
+};
+
+// Document types configuration
+const DOCUMENTS = [
+  {
+    id: 'panCard',
+    title: 'PAN Card',
+    subtitle: 'Required for KYC verification',
+    icon: 'card-outline',
+    required: true,
+  },
+  {
+    id: 'aadharCard',
+    title: 'Aadhar Card',
+    subtitle: 'Required for identity verification',
+    icon: 'id-card-outline',
+    required: true,
+  },
+  {
+    id: 'drivingLicense',
+    title: 'Driving License',
+    subtitle: 'Required for vehicle operation',
+    icon: 'car-outline',
+    required: true,
+  },
+  {
+    id: 'vehicleRC',
+    title: 'Vehicle RC',
+    subtitle: 'Registration certificate for vehicles',
+    icon: 'document-text-outline',
+    required: true,
+  },
+  {
+    id: 'insurance',
+    title: 'Insurance Certificate',
+    subtitle: 'Vehicle insurance document',
+    icon: 'shield-checkmark-outline',
+    required: true,
+  },
+];
+
 export default function DocumentUploadScreen({ navigation }: any) {
-  const [documents, setDocuments] = useState({
-    panCard: null,
-    aadhaarCard: null,
-    drivingLicense: null,
-    vehicleRC: null,
-    insurance: null,
-    tradeLicense: null,
-    gstCertificate: null,
-    bankStatement: null,
-  });
-
-  const [uploading, setUploading] = useState(false);
-
-  // Document requirements
-  const documentTypes = [
-    {
-      id: 'panCard',
-      title: 'PAN Card',
-      subtitle: 'Required for tax verification',
-      required: true,
-      icon: 'card-outline',
-    },
-    {
-      id: 'aadhaarCard',
-      title: 'Aadhaar Card',
-      subtitle: 'Required for identity verification',
-      required: true,
-      icon: 'person-outline',
-    },
-    {
-      id: 'drivingLicense',
-      title: 'Driving License',
-      subtitle: 'Required for vehicle operations',
-      required: true,
-      icon: 'car-outline',
-    },
-    {
-      id: 'vehicleRC',
-      title: 'Vehicle RC',
-      subtitle: 'Required for each vehicle',
-      required: true,
-      icon: 'document-outline',
-    },
-    {
-      id: 'insurance',
-      title: 'Vehicle Insurance',
-      subtitle: 'Required for each vehicle',
-      required: true,
-      icon: 'shield-outline',
-    },
-    {
-      id: 'tradeLicense',
-      title: 'Trade License',
-      subtitle: 'Required for business operations',
-      required: false,
-      icon: 'business-outline',
-    },
-    {
-      id: 'gstCertificate',
-      title: 'GST Certificate',
-      subtitle: 'Required if applicable',
-      required: false,
-      icon: 'receipt-outline',
-    },
-    {
-      id: 'bankStatement',
-      title: 'Bank Statement',
-      subtitle: 'Last 3 months',
-      required: false,
-      icon: 'cash-outline',
-    },
-  ];
+  // Document upload state
+  const [uploadedDocuments, setUploadedDocuments] = useState<{ [key: string]: any }>({});
+  const [isLoading, setIsLoading] = useState(false);
 
   // Handle document upload
-  const handleDocumentUpload = (documentType: string) => {
+  const handleDocumentUpload = (documentId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
     Alert.alert(
       'Upload Document',
-      'Choose an option',
+      'Choose upload method',
       [
-        { text: 'Camera', onPress: () => openCamera(documentType) },
-        { text: 'Gallery', onPress: () => openGallery(documentType) },
-        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Take Photo',
+          onPress: () => simulateUpload(documentId, 'camera')
+        },
+        {
+          text: 'Choose from Gallery',
+          onPress: () => simulateUpload(documentId, 'gallery')
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
       ]
     );
   };
 
-  // Open camera
-  const openCamera = (documentType: string) => {
-    // TODO: Implement camera functionality
-    console.log('Open camera for:', documentType);
-    // Simulate upload
-    setDocuments(prev => ({
+  // Simulate document upload
+  const simulateUpload = (documentId: string, source: string) => {
+    // In production, use actual image picker and upload
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    setUploadedDocuments(prev => ({
       ...prev,
-      [documentType]: 'uploaded',
+      [documentId]: {
+        source,
+        uploadedAt: new Date(),
+        // In production, store actual image URI
+        uri: 'mock-image-uri',
+      },
     }));
+
+    Alert.alert('Success', 'Document uploaded successfully!');
   };
 
-  // Open gallery
-  const openGallery = (documentType: string) => {
-    // TODO: Implement gallery functionality
-    console.log('Open gallery for:', documentType);
-    // Simulate upload
-    setDocuments(prev => ({
-      ...prev,
-      [documentType]: 'uploaded',
-    }));
-  };
+  // Remove uploaded document
+  const handleRemoveDocument = (documentId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-  // Remove document
-  const removeDocument = (documentType: string) => {
     Alert.alert(
       'Remove Document',
       'Are you sure you want to remove this document?',
@@ -134,376 +123,520 @@ export default function DocumentUploadScreen({ navigation }: any) {
           text: 'Remove',
           style: 'destructive',
           onPress: () => {
-            setDocuments(prev => ({
-              ...prev,
-              [documentType]: null,
-            }));
+            setUploadedDocuments(prev => {
+              const updated = { ...prev };
+              delete updated[documentId];
+              return updated;
+            });
           },
         },
       ]
     );
   };
 
-  // Check if all required documents are uploaded
-  const checkRequiredDocuments = () => {
-    const requiredDocs = documentTypes.filter(doc => doc.required);
-    return requiredDocs.every(doc => documents[doc.id as keyof typeof documents] !== null);
-  };
+  // Form submission handler
+  const handleSubmit = async () => {
+    setIsLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-  // Handle continue
-  const handleContinue = async () => {
-    if (!checkRequiredDocuments()) {
-      Alert.alert(
-        'Missing Documents',
-        'Please upload all required documents before continuing.'
-      );
-      return;
-    }
-
-    setUploading(true);
     try {
-      // TODO: Implement actual document upload API
-      // await vendorService.uploadDocuments(documents);
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      Alert.alert(
-        'Documents Uploaded',
-        'Your documents have been uploaded successfully. They will be reviewed within 24-48 hours.',
-        [
-          {
-            text: 'Continue',
-            onPress: () => {
-              // Navigate to next step (bank details or location details)
-              navigation.navigate('BankDetailsScreen');
-            },
-          },
-        ]
-      );
+      // Navigate to Registration Complete screen
+      navigation.navigate('RegistrationCompleteScreen');
     } catch (error) {
-      console.error('Error uploading documents:', error);
-      Alert.alert('Error', 'Failed to upload documents. Please try again.');
+      Alert.alert('Error', 'Failed to submit documents. Please try again.');
     } finally {
-      setUploading(false);
+      setIsLoading(false);
     }
   };
 
-  // Render document item
-  const renderDocumentItem = (doc: any) => {
-    const isUploaded = documents[doc.id as keyof typeof documents] !== null;
+  // Back button handler
+  const handleBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.goBack();
+  };
 
-    return (
-      <View key={doc.id} style={styles.documentItem}>
-        <View style={styles.documentInfo}>
-          <View style={styles.documentIcon}>
-            <Ionicons name={doc.icon} size={24} color={isUploaded ? '#34C759' : '#666'} />
-          </View>
-          <View style={styles.documentDetails}>
-            <Text style={styles.documentTitle}>
-              {doc.title}
-              {doc.required && <Text style={styles.required}> *</Text>}
-            </Text>
-            <Text style={styles.documentSubtitle}>{doc.subtitle}</Text>
-          </View>
-        </View>
+  // Calculate progress
+  const requiredDocuments = DOCUMENTS.filter(doc => doc.required);
+  const uploadedRequired = requiredDocuments.filter(
+    doc => uploadedDocuments[doc.id]
+  ).length;
+  const totalRequired = requiredDocuments.length;
 
-        <View style={styles.documentActions}>
-          {isUploaded ? (
-            <View style={styles.uploadedContainer}>
-              <Ionicons name="checkmark-circle" size={20} color="#34C759" />
-              <TouchableOpacity
-                style={styles.removeButton}
-                onPress={() => removeDocument(doc.id)}
-              >
-                <Text style={styles.removeButtonText}>Remove</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.uploadButton}
-              onPress={() => handleDocumentUpload(doc.id)}
-            >
-              <Ionicons name="cloud-upload-outline" size={16} color="#007AFF" />
-              <Text style={styles.uploadButtonText}>Upload</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    );
+  // Form validation
+  const isFormValid = () => {
+    return uploadedRequired >= totalRequired;
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Upload Documents</Text>
-          <View style={styles.placeholder} />
-        </View>
-
-        {/* Progress Indicator */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '75%' }]} />
-          </View>
-          <Text style={styles.progressText}>Step 3 of 4</Text>
-        </View>
-
-        {/* Content */}
-        <View style={styles.content}>
-          <Text style={styles.title}>Verification Documents</Text>
-          <Text style={styles.subtitle}>
-            Upload the required documents for account verification. All documents should be clear and readable.
-          </Text>
-
-          {/* Document Requirements */}
-          <View style={styles.requirementsContainer}>
-            <Text style={styles.requirementsTitle}>Document Requirements:</Text>
-            <Text style={styles.requirementItem}>• Clear, high-quality photos</Text>
-            <Text style={styles.requirementItem}>• All text should be readable</Text>
-            <Text style={styles.requirementItem}>• Documents should be valid and not expired</Text>
-            <Text style={styles.requirementItem}>• Maximum file size: 5MB per document</Text>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header with back button */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
+            </TouchableOpacity>
           </View>
 
-          {/* Documents List */}
-          <View style={styles.documentsContainer}>
-            {documentTypes.map(renderDocumentItem)}
-          </View>
-
-          {/* Upload Status */}
-          <View style={styles.statusContainer}>
-            <View style={styles.statusItem}>
-              <Text style={styles.statusLabel}>Required Documents:</Text>
-              <Text style={styles.statusValue}>
-                {documentTypes.filter(doc => doc.required).length}
-              </Text>
-            </View>
-            <View style={styles.statusItem}>
-              <Text style={styles.statusLabel}>Uploaded:</Text>
-              <Text style={styles.statusValue}>
-                {Object.values(documents).filter(doc => doc !== null).length}
-              </Text>
-            </View>
-          </View>
-
-          {/* Continue Button */}
-          <TouchableOpacity
-            style={[
-              styles.continueButton,
-              (!checkRequiredDocuments() || uploading) && styles.continueButtonDisabled,
-            ]}
-            onPress={handleContinue}
-            disabled={!checkRequiredDocuments() || uploading}
-          >
-            <Text style={styles.continueButtonText}>
-              {uploading ? 'Uploading...' : 'Continue'}
+          {/* Title Section */}
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Document Upload</Text>
+            <Text style={styles.subtitle}>
+              Upload required documents for verification
             </Text>
-          </TouchableOpacity>
+          </View>
 
-          <View style={styles.bottomSpacer} />
-        </View>
-      </ScrollView>
-    </ThemedView>
+          {/* Progress Counter */}
+          <View style={styles.progressContainer}>
+            <View style={styles.progressHeader}>
+              <View style={styles.progressInfo}>
+                <Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
+                <View style={styles.progressTextContainer}>
+                  <Text style={styles.progressTitle}>Upload Progress</Text>
+                  <Text style={styles.progressSubtitle}>
+                    {uploadedRequired}/{totalRequired} required documents uploaded
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.progressBadge}>
+                <Text style={styles.progressBadgeText}>
+                  {uploadedRequired}/{totalRequired}
+                </Text>
+              </View>
+            </View>
+
+            {/* Progress Bar */}
+            <View style={styles.progressBarContainer}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${(uploadedRequired / totalRequired) * 100}%` }
+                ]}
+              />
+            </View>
+          </View>
+
+          {/* Document List */}
+          <View style={styles.documentsContainer}>
+            {DOCUMENTS.map((document, index) => {
+              const isUploaded = !!uploadedDocuments[document.id];
+
+              return (
+                <View key={document.id} style={styles.documentSection}>
+                  {/* Document Header */}
+                  <View style={styles.documentHeader}>
+                    <View style={styles.documentHeaderLeft}>
+                      <Ionicons
+                        name={document.icon as any}
+                        size={20}
+                        color={COLORS.primary}
+                      />
+                      <View style={styles.documentHeaderText}>
+                        <Text style={styles.documentTitle}>
+                          {document.title}
+                          {document.required && (
+                            <Text style={styles.required}> *</Text>
+                          )}
+                        </Text>
+                        <Text style={styles.documentSubtitle}>
+                          {document.subtitle}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Status Badge */}
+                    {isUploaded && (
+                      <View style={styles.uploadedBadge}>
+                        <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+                        <Text style={styles.uploadedBadgeText}>Uploaded</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Document Preview Box (Driving License Size) */}
+                  <View style={styles.documentPreviewBox}>
+                    {isUploaded ? (
+                      // Uploaded Document Preview
+                      <View style={styles.uploadedPreview}>
+                        <View style={styles.uploadedContent}>
+                          <Ionicons
+                            name="document-text"
+                            size={48}
+                            color={COLORS.success}
+                          />
+                          <Text style={styles.uploadedText}>Document Uploaded</Text>
+                          <Text style={styles.uploadedDate}>
+                            {new Date(uploadedDocuments[document.id].uploadedAt).toLocaleDateString()}
+                          </Text>
+                        </View>
+
+                        {/* Remove Button */}
+                        <TouchableOpacity
+                          style={styles.removeButton}
+                          onPress={() => handleRemoveDocument(document.id)}
+                        >
+                          <Ionicons name="close-circle" size={24} color={COLORS.error} />
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      // Empty Upload Box
+                      <TouchableOpacity
+                        style={styles.emptyPreview}
+                        onPress={() => handleDocumentUpload(document.id)}
+                      >
+                        <Ionicons
+                          name="cloud-upload-outline"
+                          size={40}
+                          color={COLORS.textSecondary}
+                        />
+                        <Text style={styles.uploadPrompt}>Tap to upload</Text>
+                        <Text style={styles.uploadHint}>
+                          Take photo or choose from gallery
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Guidelines Info Box */}
+          <View style={styles.infoBox}>
+            <View style={styles.infoHeader}>
+              <Ionicons name="information-circle-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.infoTitle}>Document Guidelines</Text>
+            </View>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoText}>• Ensure documents are clear and readable</Text>
+              <Text style={styles.infoText}>• Upload high-quality images (not blurry)</Text>
+              <Text style={styles.infoText}>• All corners of document should be visible</Text>
+              <Text style={styles.infoText}>• Verification may take 24-48 hours</Text>
+            </View>
+          </View>
+
+          {/* Submit Button */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[
+                styles.submitButton,
+                (!isFormValid() || isLoading) && styles.submitButtonDisabled
+              ]}
+              onPress={handleSubmit}
+              disabled={!isFormValid() || isLoading}
+            >
+              <Text style={styles.submitButtonText}>
+                {isLoading ? 'Submitting...' : 'Submit Documents'}
+              </Text>
+              {!isLoading && (
+                <Ionicons name="checkmark" size={20} color={COLORS.white} />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Bottom Spacing */}
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // Container Styles
   container: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+  },
+  keyboardView: {
     flex: 1,
   },
   scrollView: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+  },
+
+  // Header Styles
+  header: {
+    paddingVertical: 16,
   },
   backButton: {
-    padding: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.lightGray,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  placeholder: {
-    width: 40,
-  },
-  progressContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E5EA',
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#34C759',
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  content: {
-    paddingHorizontal: 20,
+
+  // Title Styles
+  titleContainer: {
+    marginTop: 8,
+    marginBottom: 24,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#000',
+    color: COLORS.primary,
     marginBottom: 8,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
-    marginBottom: 24,
-    lineHeight: 22,
+    color: COLORS.textSecondary,
+    lineHeight: 24,
   },
-  requirementsContainer: {
-    backgroundColor: '#F0F8FF',
+
+  // Progress Container
+  progressContainer: {
+    backgroundColor: COLORS.lightGray,
     padding: 16,
     borderRadius: 12,
     marginBottom: 24,
   },
-  requirementsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#007AFF',
-    marginBottom: 8,
-  },
-  requirementItem: {
-    fontSize: 14,
-    color: '#007AFF',
-    marginBottom: 4,
-    lineHeight: 20,
-  },
-  documentsContainer: {
-    marginBottom: 24,
-  },
-  documentItem: {
+  progressHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  documentInfo: {
+  progressInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    gap: 12,
   },
-  documentIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F8F9FA',
-    justifyContent: 'center',
+  progressTextContainer: {
+    flex: 1,
+  },
+  progressTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginBottom: 4,
+  },
+  progressSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  progressBadge: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  progressBadgeText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+
+  // Progress Bar
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: COLORS.gray,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: COLORS.success,
+    borderRadius: 4,
+  },
+
+  // Documents Container
+  documentsContainer: {
+    marginBottom: 24,
+  },
+  documentSection: {
+    marginBottom: 24,
+  },
+
+  // Document Header
+  documentHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 16,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  documentDetails: {
+  documentHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 10,
+  },
+  documentHeaderText: {
     flex: 1,
   },
   documentTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
-    marginBottom: 4,
+    color: COLORS.primary,
+    marginBottom: 2,
   },
   required: {
-    color: '#FF3B30',
+    color: COLORS.error,
+    fontSize: 16,
   },
   documentSubtitle: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 13,
+    color: COLORS.textSecondary,
   },
-  documentActions: {
-    alignItems: 'center',
-  },
-  uploadedContainer: {
-    alignItems: 'center',
-  },
-  uploadButton: {
+
+  // Uploaded Badge
+  uploadedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#F0F8FF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  uploadButtonText: {
-    fontSize: 14,
-    color: '#007AFF',
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  removeButton: {
-    paddingHorizontal: 12,
+    gap: 4,
+    backgroundColor: `${COLORS.success}15`,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    marginTop: 4,
+    borderRadius: 12,
   },
-  removeButtonText: {
+  uploadedBadgeText: {
     fontSize: 12,
-    color: '#FF3B30',
-    fontWeight: '500',
+    fontWeight: '600',
+    color: COLORS.success,
   },
-  statusContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#F8F9FA',
+
+  // Document Preview Box (Driving License Size: ~85mm x 54mm ratio)
+  documentPreviewBox: {
+    width: '100%',
+    aspectRatio: 85 / 54, // Driving license aspect ratio
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.gray,
+    borderStyle: 'dashed',
+    overflow: 'hidden',
+  },
+
+  // Empty Preview
+  emptyPreview: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.lightGray,
+    padding: 20,
+  },
+  uploadPrompt: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  uploadHint: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+
+  // Uploaded Preview
+  uploadedPreview: {
+    flex: 1,
+    backgroundColor: `${COLORS.success}08`,
+    position: 'relative',
+  },
+  uploadedContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  uploadedText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.success,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  uploadedDate: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+
+  // Remove Button
+  removeButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
+  // Info Box
+  infoBox: {
+    backgroundColor: COLORS.lightGray,
     padding: 16,
     borderRadius: 12,
     marginBottom: 24,
   },
-  statusItem: {
+  infoHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
   },
-  statusLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
+  infoTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.primary,
   },
-  statusValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
+  infoContent: {
+    gap: 8,
   },
-  continueButton: {
-    backgroundColor: '#007AFF',
+  infoText: {
+    fontSize: 13,
+    color: COLORS.primary,
+    lineHeight: 20,
+  },
+
+  // Button Styles
+  buttonContainer: {
+    marginBottom: 24,
+  },
+  submitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    height: 56,
     borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 20,
+    gap: 8,
   },
-  continueButtonDisabled: {
+  submitButtonDisabled: {
+    backgroundColor: COLORS.gray,
     opacity: 0.5,
   },
-  continueButtonText: {
+  submitButtonText: {
     fontSize: 16,
-    color: '#FFFFFF',
     fontWeight: '600',
+    color: COLORS.white,
   },
-  bottomSpacer: {
+
+  // Bottom Spacing
+  bottomSpacing: {
     height: 40,
   },
 });

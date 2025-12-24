@@ -1,122 +1,106 @@
-import { ThemedView } from '../../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
-    Image,
+    Animated,
+    Dimensions,
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * Edit Vehicle Screen - Modify existing vehicle details
- * Allows vendors to update vehicle information, pricing, and availability
- */
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { Input } from '../../../components/ui/Input';
+import { BorderRadius, BrandColors, Spacing, Typography } from '../../../constants/brandTheme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 export default function EditVehicleScreen({ navigation, route }: any) {
   const { vehicle } = route.params || {};
-
-  const [vehicleDetails, setVehicleDetails] = useState({
-    make: vehicle?.make || 'Maruti',
-    model: vehicle?.model || 'Swift Dzire',
-    year: vehicle?.year || '2022',
-    color: vehicle?.color || 'White',
-    licensePlate: vehicle?.licensePlate || 'KA01AB1234',
-    vin: vehicle?.vin || '',
-    engineNumber: vehicle?.engineNumber || '',
-    chassisNumber: vehicle?.chassisNumber || '',
-    fuelType: vehicle?.fuelType || 'petrol',
-    transmission: vehicle?.transmission || 'manual',
-    bodyType: vehicle?.bodyType || 'sedan',
-    seatingCapacity: vehicle?.seatingCapacity || '5',
-    mileage: vehicle?.mileage || '18',
-    engineCapacity: vehicle?.engineCapacity || '1200',
+  const [formData, setFormData] = useState({
+    vehicleName: vehicle?.name || '',
+    brand: vehicle?.brand || '',
+    model: vehicle?.model || '',
+    year: vehicle?.year || '',
+    color: vehicle?.color || '',
+    licensePlate: vehicle?.licensePlate || '',
+    vehicleType: vehicle?.type || '',
+    fuelType: vehicle?.fuelType || '',
+    transmission: vehicle?.transmission || '',
+    seatingCapacity: vehicle?.seatingCapacity || '',
+    mileage: vehicle?.mileage || '',
+    pricePerDay: vehicle?.pricePerDay || '',
+    description: vehicle?.description || '',
+    features: vehicle?.features || [],
+    status: vehicle?.status || 'available',
   });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [pricing, setPricing] = useState({
-    hourlyRate: vehicle?.hourlyRate || '150',
-    dailyRate: vehicle?.dailyRate || '1200',
-    weeklyRate: vehicle?.weeklyRate || '7500',
-    monthlyRate: vehicle?.monthlyRate || '25000',
-    securityDeposit: vehicle?.securityDeposit || '5000',
-    cleaningFee: vehicle?.cleaningFee || '200',
-    lateReturnFee: vehicle?.lateReturnFee || '500',
-  });
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
-  const [availability, setAvailability] = useState({
-    isAvailable: vehicle?.isAvailable || true,
-    advanceBookingDays: vehicle?.advanceBookingDays || '7',
-    minimumRentalHours: vehicle?.minimumRentalHours || '4',
-    pickupTime: vehicle?.pickupTime || '08:00',
-    dropoffTime: vehicle?.dropoffTime || '20:00',
-  });
+  const vehicleTypes = ['Sedan', 'SUV', 'Hatchback', 'Coupe', 'Convertible', 'Truck', 'Van'];
+  const fuelTypes = ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'CNG'];
+  const transmissionTypes = ['Manual', 'Automatic', 'CVT'];
+  const statusOptions = ['available', 'booked', 'maintenance'];
+  const features = ['AC', 'GPS', 'Bluetooth', 'USB', 'Sunroof', 'Leather Seats', 'Backup Camera'];
 
-  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
-  // Handle basic details change
-  const handleBasicDetailsChange = (field: string, value: string) => {
-    setVehicleDetails(prev => ({
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleFeatureToggle = (feature: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setFormData(prev => ({
       ...prev,
-      [field]: value,
+      features: prev.features.includes(feature)
+        ? prev.features.filter(f => f !== feature)
+        : [...prev.features, feature],
     }));
   };
 
-  // Handle pricing change
-  const handlePricingChange = (field: string, value: string) => {
-    setPricing(prev => ({
-      ...prev,
-      [field]: value,
-    }));
+  const handleStatusChange = (status: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setFormData(prev => ({ ...prev, status }));
   };
 
-  // Handle availability change
-  const handleAvailabilityChange = (field: string, value: string | boolean) => {
-    setAvailability(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+  const handleSave = async () => {
+    setIsLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-  // Validate form
-  const validateForm = () => {
-    if (!vehicleDetails.make.trim()) {
-      Alert.alert('Error', 'Please enter vehicle make');
-      return false;
-    }
-    if (!vehicleDetails.model.trim()) {
-      Alert.alert('Error', 'Please enter vehicle model');
-      return false;
-    }
-    if (!vehicleDetails.dailyRate.trim()) {
-      Alert.alert('Error', 'Please enter daily rate');
-      return false;
-    }
-    return true;
-  };
-
-  // Handle save changes
-  const handleSaveChanges = async () => {
-    if (!validateForm()) return;
-
-    setLoading(true);
     try {
-      const updatedVehicle = {
-        ...vehicle,
-        ...vehicleDetails,
-        ...pricing,
-        ...availability,
-        updatedAt: new Date().toISOString(),
-      };
-
-      // TODO: Implement actual API call to update vehicle
-      // await vehicleService.updateVehicle(vehicle.id, updatedVehicle);
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       Alert.alert(
-        'Vehicle Updated',
-        'Your vehicle details have been updated successfully.',
+        'Success',
+        'Vehicle updated successfully!',
         [
           {
             text: 'OK',
@@ -125,15 +109,18 @@ export default function EditVehicleScreen({ navigation, route }: any) {
         ]
       );
     } catch (error) {
-      console.error('Error updating vehicle:', error);
       Alert.alert('Error', 'Failed to update vehicle. Please try again.');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  // Handle delete vehicle
-  const handleDeleteVehicle = () => {
+  const handleBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.goBack();
+  };
+
+  const handleDelete = () => {
     Alert.alert(
       'Delete Vehicle',
       'Are you sure you want to delete this vehicle? This action cannot be undone.',
@@ -143,507 +130,454 @@ export default function EditVehicleScreen({ navigation, route }: any) {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            // TODO: Implement delete vehicle API
-            Alert.alert('Vehicle Deleted', 'Vehicle has been removed from your fleet.');
-            navigation.goBack();
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            // Handle delete logic
+            navigation.navigate('MyFleetScreen');
           },
         },
       ]
     );
   };
 
+  const isFormValid = () => {
+    return formData.vehicleName &&
+           formData.brand &&
+           formData.model &&
+           formData.year &&
+           formData.licensePlate &&
+           formData.pricePerDay;
+  };
+
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={BrandColors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Vehicle</Text>
-          <TouchableOpacity style={styles.saveButton} onPress={handleSaveChanges}>
-            <Text style={styles.saveButtonText}>Save</Text>
-          </TouchableOpacity>
-        </View>
 
-        {/* Vehicle Photo */}
-        <View style={styles.photoSection}>
-          <View style={styles.photoContainer}>
-            <Image
-              source={{ uri: vehicle?.image || 'https://via.placeholder.com/300x200' }}
-              style={styles.vehiclePhoto}
-              resizeMode="cover"
-            />
-            <TouchableOpacity style={styles.changePhotoButton}>
-              <Ionicons name="camera" size={16} color="#007AFF" />
-              <Text style={styles.changePhotoText}>Change Photo</Text>
-            </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>Edit Vehicle</Text>
+            <Text style={styles.subtitle}>
+              Update vehicle information
+            </Text>
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Content */}
-        <View style={styles.content}>
-          {/* Basic Details Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Basic Details</Text>
+        {/* Form Content */}
+        <Animated.View
+          style={[
+            styles.contentContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { translateY: slideAnim },
+                { scale: scaleAnim },
+              ],
+            },
+          ]}
+        >
+          {/* Basic Information */}
+          <Card variant="elevated" size="lg" style={styles.formCard}>
+            <Text style={styles.sectionTitle}>Basic Information</Text>
 
-            <View style={styles.inputRow}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Make *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={vehicleDetails.make}
-                  onChangeText={(value) => handleBasicDetailsChange('make', value)}
-                  placeholder="Enter make"
-                />
-              </View>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Model *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={vehicleDetails.model}
-                  onChangeText={(value) => handleBasicDetailsChange('model', value)}
-                  placeholder="Enter model"
-                />
-              </View>
-            </View>
+            <Input
+              label="Vehicle Name"
+              value={formData.vehicleName}
+              onChangeText={(value) => handleInputChange('vehicleName', value)}
+              placeholder="Enter vehicle name"
+              leftIcon="car"
+              containerStyle={styles.input}
+            />
 
-            <View style={styles.inputRow}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Year</Text>
-                <TextInput
-                  style={styles.input}
-                  value={vehicleDetails.year}
-                  onChangeText={(value) => handleBasicDetailsChange('year', value)}
-                  placeholder="Enter year"
-                  keyboardType="numeric"
-                />
-              </View>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Color</Text>
-                <TextInput
-                  style={styles.input}
-                  value={vehicleDetails.color}
-                  onChangeText={(value) => handleBasicDetailsChange('color', value)}
-                  placeholder="Enter color"
-                />
-              </View>
-            </View>
+            <View style={styles.rowInputs}>
+              <Input
+                label="Brand"
+                value={formData.brand}
+                onChangeText={(value) => handleInputChange('brand', value)}
+                placeholder="Brand"
+                leftIcon="business"
+                containerStyle={[styles.input, styles.halfInput]}
+              />
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>License Plate</Text>
-              <TextInput
-                style={styles.input}
-                value={vehicleDetails.licensePlate}
-                onChangeText={(value) => handleBasicDetailsChange('licensePlate', value)}
-                placeholder="Enter license plate"
-                autoCapitalize="characters"
+              <Input
+                label="Model"
+                value={formData.model}
+                onChangeText={(value) => handleInputChange('model', value)}
+                placeholder="Model"
+                leftIcon="car-sport"
+                containerStyle={[styles.input, styles.halfInput]}
               />
             </View>
 
-            <View style={styles.inputRow}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Fuel Type</Text>
-                <View style={styles.selectorContainer}>
-                  {['petrol', 'diesel', 'cng', 'electric'].map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      style={[
-                        styles.selectorOption,
-                        vehicleDetails.fuelType === type && styles.selectorOptionSelected,
-                      ]}
-                      onPress={() => handleBasicDetailsChange('fuelType', type)}
-                    >
-                      <Text style={[
-                        styles.selectorText,
-                        vehicleDetails.fuelType === type && styles.selectorTextSelected,
-                      ]}>
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Transmission</Text>
-                <View style={styles.selectorContainer}>
-                  {['manual', 'automatic'].map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      style={[
-                        styles.selectorOption,
-                        vehicleDetails.transmission === type && styles.selectorOptionSelected,
-                      ]}
-                      onPress={() => handleBasicDetailsChange('transmission', type)}
-                    >
-                      <Text style={[
-                        styles.selectorText,
-                        vehicleDetails.transmission === type && styles.selectorTextSelected,
-                      ]}>
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
+            <View style={styles.rowInputs}>
+              <Input
+                label="Year"
+                value={formData.year}
+                onChangeText={(value) => handleInputChange('year', value)}
+                placeholder="2023"
+                leftIcon="calendar"
+                keyboardType="numeric"
+                containerStyle={[styles.input, styles.halfInput]}
+              />
+
+              <Input
+                label="Color"
+                value={formData.color}
+                onChangeText={(value) => handleInputChange('color', value)}
+                placeholder="Color"
+                leftIcon="color-palette"
+                containerStyle={[styles.input, styles.halfInput]}
+              />
             </View>
-          </View>
 
-          {/* Pricing Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Pricing</Text>
+            <Input
+              label="License Plate"
+              value={formData.licensePlate}
+              onChangeText={(value) => handleInputChange('licensePlate', value.toUpperCase())}
+              placeholder="Enter license plate number"
+              leftIcon="card"
+              containerStyle={styles.input}
+            />
+          </Card>
 
-            <View style={styles.pricingCard}>
-              <View style={styles.inputRow}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Hourly Rate (₹)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={pricing.hourlyRate}
-                    onChangeText={(value) => handlePricingChange('hourlyRate', value)}
-                    placeholder="Enter hourly rate"
-                    keyboardType="numeric"
-                  />
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Daily Rate (₹) *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={pricing.dailyRate}
-                    onChangeText={(value) => handlePricingChange('dailyRate', value)}
-                    placeholder="Enter daily rate"
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
+          {/* Specifications */}
+          <Card variant="elevated" size="lg" style={styles.formCard}>
+            <Text style={styles.sectionTitle}>Specifications</Text>
 
-              <View style={styles.inputRow}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Weekly Rate (₹)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={pricing.weeklyRate}
-                    onChangeText={(value) => handlePricingChange('weeklyRate', value)}
-                    placeholder="Enter weekly rate"
-                    keyboardType="numeric"
-                  />
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Monthly Rate (₹)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={pricing.monthlyRate}
-                    onChangeText={(value) => handlePricingChange('monthlyRate', value)}
-                    placeholder="Enter monthly rate"
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
+            <Input
+              label="Vehicle Type"
+              value={formData.vehicleType}
+              onChangeText={(value) => handleInputChange('vehicleType', value)}
+              placeholder="Select vehicle type"
+              leftIcon="car"
+              containerStyle={styles.input}
+            />
 
-              <View style={styles.inputRow}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Security Deposit (₹)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={pricing.securityDeposit}
-                    onChangeText={(value) => handlePricingChange('securityDeposit', value)}
-                    placeholder="Enter security deposit"
-                    keyboardType="numeric"
-                  />
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Cleaning Fee (₹)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={pricing.cleaningFee}
-                    onChangeText={(value) => handlePricingChange('cleaningFee', value)}
-                    placeholder="Enter cleaning fee"
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
+            <View style={styles.rowInputs}>
+              <Input
+                label="Fuel Type"
+                value={formData.fuelType}
+                onChangeText={(value) => handleInputChange('fuelType', value)}
+                placeholder="Fuel type"
+                leftIcon="flash"
+                containerStyle={[styles.input, styles.halfInput]}
+              />
+
+              <Input
+                label="Transmission"
+                value={formData.transmission}
+                onChangeText={(value) => handleInputChange('transmission', value)}
+                placeholder="Transmission"
+                leftIcon="settings"
+                containerStyle={[styles.input, styles.halfInput]}
+              />
             </View>
-          </View>
 
-          {/* Availability Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Availability</Text>
+            <View style={styles.rowInputs}>
+              <Input
+                label="Seating Capacity"
+                value={formData.seatingCapacity}
+                onChangeText={(value) => handleInputChange('seatingCapacity', value)}
+                placeholder="Seats"
+                leftIcon="people"
+                keyboardType="numeric"
+                containerStyle={[styles.input, styles.halfInput]}
+              />
 
-            <View style={styles.availabilityCard}>
-              <View style={styles.availabilityItem}>
-                <Text style={styles.availabilityLabel}>Vehicle Available</Text>
+              <Input
+                label="Mileage"
+                value={formData.mileage}
+                onChangeText={(value) => handleInputChange('mileage', value)}
+                placeholder="km/l"
+                leftIcon="speedometer"
+                containerStyle={[styles.input, styles.halfInput]}
+              />
+            </View>
+          </Card>
+
+          {/* Pricing & Status */}
+          <Card variant="elevated" size="lg" style={styles.formCard}>
+            <Text style={styles.sectionTitle}>Pricing & Status</Text>
+
+            <Input
+              label="Price Per Day"
+              value={formData.pricePerDay}
+              onChangeText={(value) => handleInputChange('pricePerDay', value)}
+              placeholder="Enter daily rate"
+              leftIcon="cash"
+              keyboardType="numeric"
+              containerStyle={styles.input}
+            />
+
+            <Text style={styles.statusTitle}>Current Status</Text>
+            <View style={styles.statusOptions}>
+              {statusOptions.map((status) => (
                 <TouchableOpacity
+                  key={status}
                   style={[
-                    styles.toggleButton,
-                    availability.isAvailable && styles.toggleButtonActive,
+                    styles.statusOption,
+                    formData.status === status && styles.statusOptionSelected,
                   ]}
-                  onPress={() => handleAvailabilityChange('isAvailable', !availability.isAvailable)}
+                  onPress={() => handleStatusChange(status)}
                 >
-                  <View style={[
-                    styles.toggleThumb,
-                    availability.isAvailable && styles.toggleThumbActive,
-                  ]} />
+                  <Text style={[
+                    styles.statusOptionText,
+                    formData.status === status && styles.statusOptionTextSelected,
+                  ]}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </Text>
                 </TouchableOpacity>
-              </View>
-
-              <View style={styles.inputRow}>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Advance Booking (Days)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={availability.advanceBookingDays}
-                    onChangeText={(value) => handleAvailabilityChange('advanceBookingDays', value)}
-                    placeholder="Enter days"
-                    keyboardType="numeric"
-                  />
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Min Rental (Hours)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={availability.minimumRentalHours}
-                    onChangeText={(value) => handleAvailabilityChange('minimumRentalHours', value)}
-                    placeholder="Enter hours"
-                    keyboardType="numeric"
-                  />
-                </View>
-              </View>
+              ))}
             </View>
+          </Card>
+
+          {/* Features */}
+          <Card variant="elevated" size="lg" style={styles.formCard}>
+            <Text style={styles.sectionTitle}>Features</Text>
+            <View style={styles.featuresGrid}>
+              {features.map((feature, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.featureChip,
+                    formData.features.includes(feature) && styles.featureChipSelected,
+                  ]}
+                  onPress={() => handleFeatureToggle(feature)}
+                >
+                  <Text style={[
+                    styles.featureChipText,
+                    formData.features.includes(feature) && styles.featureChipTextSelected,
+                  ]}>
+                    {feature}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Card>
+
+          {/* Description */}
+          <Card variant="elevated" size="lg" style={styles.formCard}>
+            <Text style={styles.sectionTitle}>Description</Text>
+
+            <Input
+              label="Vehicle Description"
+              value={formData.description}
+              onChangeText={(value) => handleInputChange('description', value)}
+              placeholder="Describe your vehicle"
+              leftIcon="document-text"
+              multiline
+              numberOfLines={4}
+              containerStyle={styles.input}
+            />
+          </Card>
+        </Animated.View>
+
+        {/* Action Buttons */}
+        <Animated.View
+          style={[
+            styles.buttonContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.buttonRow}>
+            <Button
+              title="Delete Vehicle"
+              onPress={handleDelete}
+              variant="outline"
+              size="lg"
+              icon="trash"
+              iconPosition="left"
+              style={styles.deleteButton}
+            />
+
+            <Button
+              title="Save Changes"
+              onPress={handleSave}
+              variant="primary"
+              size="lg"
+              loading={isLoading}
+              disabled={!isFormValid()}
+              icon="checkmark"
+              iconPosition="right"
+              style={styles.saveButton}
+            />
           </View>
+        </Animated.View>
 
-          {/* Actions Section */}
-          <View style={styles.section}>
-            <TouchableOpacity style={styles.saveChangesButton} onPress={handleSaveChanges}>
-              <Text style={styles.saveChangesText}>
-                {loading ? 'Saving...' : 'Save Changes'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteVehicle}>
-              <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-              <Text style={styles.deleteButtonText}>Delete Vehicle</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.bottomSpacer} />
-        </View>
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: BrandColors.backgroundPrimary,
   },
   scrollView: {
     flex: 1,
   },
+
+  // Header
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
   },
   backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  saveButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '500',
-  },
-  photoSection: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  photoContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.gray50,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
   },
-  vehiclePhoto: {
+  headerContent: {
+    flex: 1,
+  },
+  title: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['3xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
+  },
+  subtitle: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
+  },
+
+  // Content
+  contentContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  formCard: {
     width: '100%',
-    height: 200,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  changePhotoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#F0F8FF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  changePhotoText: {
-    fontSize: 14,
-    color: '#007AFF',
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  content: {
-    paddingHorizontal: 20,
-  },
-  section: {
-    marginBottom: 32,
+    marginBottom: Spacing.lg,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 16,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 16,
-  },
-  inputGroup: {
-    flex: 1,
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#000',
-    marginBottom: 8,
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.lg,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#000',
-    backgroundColor: '#FFFFFF',
+    marginBottom: Spacing.md,
   },
-  selectorContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  selectorOption: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-  },
-  selectorOptionSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#F0F8FF',
-  },
-  selectorText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  selectorTextSelected: {
-    color: '#007AFF',
-    fontWeight: '500',
-  },
-  pricingCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  availabilityCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  availabilityItem: {
+  rowInputs: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  halfInput: {
+    width: '48%',
+  },
+
+  // Status
+  statusTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.md,
+  },
+  statusOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statusOption: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: BrandColors.gray50,
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    marginBottom: 16,
+    marginHorizontal: Spacing.xs,
+    borderWidth: 1,
+    borderColor: BrandColors.borderLight,
   },
-  availabilityLabel: {
-    fontSize: 16,
-    color: '#000',
-    fontWeight: '500',
+  statusOptionSelected: {
+    backgroundColor: BrandColors.primary,
+    borderColor: BrandColors.primary,
   },
-  toggleButton: {
-    width: 50,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#E5E5EA',
-    justifyContent: 'center',
-    paddingHorizontal: 2,
+  statusOptionText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+    fontWeight: Typography.fontWeight.medium,
   },
-  toggleButtonActive: {
-    backgroundColor: '#007AFF',
+  statusOptionTextSelected: {
+    color: BrandColors.secondary,
   },
-  toggleThumb: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+
+  // Features
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: Spacing.md,
   },
-  toggleThumbActive: {
-    alignSelf: 'flex-end',
+  featureChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.gray50,
+    marginRight: Spacing.sm,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: BrandColors.borderLight,
   },
-  saveChangesButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 16,
+  featureChipSelected: {
+    backgroundColor: BrandColors.primary,
+    borderColor: BrandColors.primary,
   },
-  saveChangesText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
+  featureChipText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+  },
+  featureChipTextSelected: {
+    color: BrandColors.secondary,
+    fontWeight: Typography.fontWeight.medium,
+  },
+
+  // Buttons
+  buttonContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   deleteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#FFF5F5',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
+    flex: 1,
+    marginRight: Spacing.md,
   },
-  deleteButtonText: {
-    fontSize: 16,
-    color: '#FF3B30',
-    fontWeight: '500',
-    marginLeft: 8,
+  saveButton: {
+    flex: 1,
   },
-  bottomSpacer: {
-    height: 40,
+
+  // Bottom
+  bottomSpacing: {
+    height: Spacing.xl,
   },
 });

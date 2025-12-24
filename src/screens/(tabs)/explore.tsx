@@ -10,9 +10,9 @@ import {
     View,
 } from 'react-native';
 
-import { ThemedView } from '../../components/themed-view';
 import { Car } from '../../types';
 import { formatCurrency } from '../../utils/helpers';
+import { ThemedView } from '../../components/themed-view';
 
 /**
  * ExploreScreen Component (Car Management)

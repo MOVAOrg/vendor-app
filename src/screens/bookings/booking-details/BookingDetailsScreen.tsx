@@ -1,841 +1,704 @@
-import { ThemedView } from '../../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
+    Animated,
+    Dimensions,
+    Image,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * Booking Details Screen - View comprehensive booking information
- * Displays detailed booking information, customer details, and management options
- */
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { BorderRadius, BrandColors, Spacing, Typography } from '../../../constants/brandTheme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 export default function BookingDetailsScreen({ navigation, route }: any) {
-  const { bookingId } = route.params || {};
+  const { booking } = route.params || {};
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
 
-  const [activeTab, setActiveTab] = useState('details');
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
-  // Mock booking data
-  const bookingData = {
-    id: 'MOV-12345',
-    customerId: 'CUST-001',
-    customerName: 'Rajesh Kumar',
-    customerPhone: '+91 98765 43210',
-    customerEmail: 'rajesh@email.com',
-    vehicleId: 'VEH-001',
-    vehicleName: 'Maruti Swift Dzire',
-    vehicleLicensePlate: 'KA01AB1234',
-    status: 'confirmed', // pending, confirmed, ongoing, completed, cancelled
-    pickupDate: '2025-01-20',
-    pickupTime: '10:00',
-    dropoffDate: '2025-01-23',
-    dropoffTime: '18:00',
-    pickupLocation: 'MG Road, Bangalore',
-    dropoffLocation: 'MG Road, Bangalore',
-    totalAmount: 4500,
-    securityDeposit: 5000,
-    advanceAmount: 2000,
-    remainingAmount: 2500,
-    rentalType: 'daily',
-    duration: 3,
-    createdAt: '2025-01-15T10:30:00Z',
-    notes: 'Customer prefers early morning pickup',
+  // Mock booking data if not provided
+  const bookingData = booking || {
+    id: 'BK001',
+    customer: {
+      name: 'Rajesh Kumar',
+      phone: '+91 98765 43210',
+      email: 'rajesh.kumar@email.com',
+      rating: 4.5,
+    },
+    vehicle: {
+      name: 'Toyota Camry 2023',
+      image: 'https://via.placeholder.com/300x200/007AFF/FFFFFF?text=Toyota+Camry',
+      licensePlate: 'MH01AB1234',
+      type: 'Sedan',
+      features: ['AC', 'GPS', 'Bluetooth'],
+    },
+    booking: {
+      startDate: '2024-03-15',
+      endDate: '2024-03-17',
+      startTime: '10:00 AM',
+      endTime: '10:00 AM',
+      duration: '2 days',
+      pickupLocation: 'Mumbai Airport Terminal 2',
+      dropoffLocation: 'Mumbai Airport Terminal 2',
+      totalAmount: 5000,
+      advancePaid: 1500,
+      balanceAmount: 3500,
+      status: 'confirmed',
+      bookingDate: '2024-03-10',
+    },
+    payment: {
+      method: 'UPI',
+      transactionId: 'TXN123456789',
+      status: 'completed',
+      paidAmount: 1500,
+    },
+    notes: 'Customer prefers early morning pickup. Please ensure vehicle is clean and fuel tank is full.',
   };
 
-  // Tabs configuration
   const tabs = [
-    { id: 'details', label: 'Details', icon: 'information-circle-outline' },
-    { id: 'customer', label: 'Customer', icon: 'person-outline' },
-    { id: 'vehicle', label: 'Vehicle', icon: 'car-outline' },
-    { id: 'payment', label: 'Payment', icon: 'cash-outline' },
+    { id: 'overview', title: 'Overview', icon: 'information-circle' },
+    { id: 'customer', title: 'Customer', icon: 'person' },
+    { id: 'vehicle', title: 'Vehicle', icon: 'car' },
+    { id: 'payment', title: 'Payment', icon: 'card' },
   ];
 
-  // Get status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmed': return '#34C759';
-      case 'ongoing': return '#007AFF';
-      case 'completed': return '#8E8E93';
-      case 'cancelled': return '#FF3B30';
-      default: return '#FF9500';
-    }
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handleBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.goBack();
   };
 
-  // Get status icon
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'confirmed': return 'checkmark-circle-outline';
-      case 'ongoing': return 'play-circle-outline';
-      case 'completed': return 'checkmark-done-outline';
-      case 'cancelled': return 'close-circle-outline';
-      default: return 'time-outline';
-    }
-  };
-
-  // Handle tab change
-  const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId);
-  };
-
-  // Handle status change
   const handleStatusChange = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert(
       'Change Status',
-      'Select new status',
+      'Select new status for this booking',
       [
-        { text: 'Confirmed', onPress: () => console.log('Status: confirmed') },
-        { text: 'Ongoing', onPress: () => console.log('Status: ongoing') },
-        { text: 'Completed', onPress: () => console.log('Status: completed') },
-        { text: 'Cancelled', onPress: () => console.log('Status: cancelled') },
+        { text: 'Confirmed', onPress: () => console.log('Status: Confirmed') },
+        { text: 'In Progress', onPress: () => console.log('Status: In Progress') },
+        { text: 'Completed', onPress: () => console.log('Status: Completed') },
+        { text: 'Cancelled', onPress: () => console.log('Status: Cancelled') },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
   };
 
-  // Handle contact customer
   const handleContactCustomer = () => {
-    Alert.alert(
-      'Contact Customer',
-      'Choose contact method',
-      [
-        { text: 'Call', onPress: () => console.log('Call customer') },
-        { text: 'WhatsApp', onPress: () => console.log('WhatsApp customer') },
-        { text: 'SMS', onPress: () => console.log('SMS customer') },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert('Contact Customer', 'Opening phone dialer...');
   };
 
-  // Render details tab
-  const renderDetailsTab = () => (
+  const getStatusColor = () => {
+    switch (bookingData.booking.status) {
+      case 'confirmed': return BrandColors.accent;
+      case 'in-progress': return BrandColors.warning;
+      case 'completed': return BrandColors.primary;
+      case 'cancelled': return BrandColors.error;
+      default: return BrandColors.textLight;
+    }
+  };
+
+  const getStatusIcon = () => {
+    switch (bookingData.booking.status) {
+      case 'confirmed': return 'checkmark-circle';
+      case 'in-progress': return 'time';
+      case 'completed': return 'checkmark-done-circle';
+      case 'cancelled': return 'close-circle';
+      default: return 'help-circle';
+    }
+  };
+
+  const renderOverview = () => (
     <View style={styles.tabContent}>
       {/* Booking Status */}
-      <View style={styles.statusCard}>
-        <View style={styles.statusHeader}>
-          <View style={styles.statusInfo}>
-            <Ionicons
-              name={getStatusIcon(bookingData.status)}
-              size={24}
-              color={getStatusColor(bookingData.status)}
-            />
-            <Text style={styles.statusText}>
-              {bookingData.status.charAt(0).toUpperCase() + bookingData.status.slice(1)}
-            </Text>
-          </View>
-          <TouchableOpacity style={styles.changeStatusButton} onPress={handleStatusChange}>
-            <Text style={styles.changeStatusText}>Change</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.bookingId}>Booking ID: {bookingData.id}</Text>
-      </View>
-
-      {/* Booking Timeline */}
-      <View style={styles.timelineCard}>
-        <Text style={styles.cardTitle}>Booking Timeline</Text>
-        <View style={styles.timeline}>
-          <View style={styles.timelineItem}>
-            <View style={styles.timelineDot} />
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineLabel}>Pickup</Text>
-              <Text style={styles.timelineValue}>
-                {bookingData.pickupDate} at {bookingData.pickupTime}
+      <Card variant="elevated" size="md" style={styles.statusCard}>
+        <View style={styles.statusContainer}>
+          <View style={styles.statusLeft}>
+            <Ionicons name={getStatusIcon()} size={24} color={getStatusColor()} />
+            <View style={styles.statusInfo}>
+              <Text style={styles.statusTitle}>
+                {bookingData.booking.status.charAt(0).toUpperCase() + bookingData.booking.status.slice(1)}
               </Text>
-              <Text style={styles.timelineLocation}>{bookingData.pickupLocation}</Text>
+              <Text style={styles.statusSubtitle}>Booking #{bookingData.id}</Text>
             </View>
           </View>
-          <View style={styles.timelineItem}>
-            <View style={styles.timelineDot} />
-            <View style={styles.timelineContent}>
-              <Text style={styles.timelineLabel}>Dropoff</Text>
-              <Text style={styles.timelineValue}>
-                {bookingData.dropoffDate} at {bookingData.dropoffTime}
-              </Text>
-              <Text style={styles.timelineLocation}>{bookingData.dropoffLocation}</Text>
-            </View>
-          </View>
+          <Text style={styles.bookingDate}>{bookingData.booking.bookingDate}</Text>
         </View>
-      </View>
+      </Card>
 
-      {/* Rental Information */}
-      <View style={styles.infoCard}>
-        <Text style={styles.cardTitle}>Rental Information</Text>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Rental Type</Text>
-          <Text style={styles.infoValue}>
-            {bookingData.rentalType.charAt(0).toUpperCase() + bookingData.rentalType.slice(1)}
-          </Text>
-        </View>
+      {/* Booking Details */}
+      <Card variant="elevated" size="md" style={styles.infoCard}>
+        <Text style={styles.cardTitle}>Booking Details</Text>
+
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Duration</Text>
-          <Text style={styles.infoValue}>{bookingData.duration} days</Text>
+          <Text style={styles.infoValue}>{bookingData.booking.duration}</Text>
         </View>
+
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Booking Date</Text>
-          <Text style={styles.infoValue}>
-            {new Date(bookingData.createdAt).toLocaleDateString()}
-          </Text>
+          <Text style={styles.infoLabel}>Start Date & Time</Text>
+          <Text style={styles.infoValue}>{bookingData.booking.startDate} at {bookingData.booking.startTime}</Text>
         </View>
-        {bookingData.notes && (
-          <View style={styles.notesContainer}>
-            <Text style={styles.infoLabel}>Notes</Text>
-            <Text style={styles.notesText}>{bookingData.notes}</Text>
-          </View>
-        )}
-      </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>End Date & Time</Text>
+          <Text style={styles.infoValue}>{bookingData.booking.endDate} at {bookingData.booking.endTime}</Text>
+        </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Pickup Location</Text>
+          <Text style={styles.infoValue}>{bookingData.booking.pickupLocation}</Text>
+        </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Dropoff Location</Text>
+          <Text style={styles.infoValue}>{bookingData.booking.dropoffLocation}</Text>
+        </View>
+      </Card>
+
+      {/* Payment Summary */}
+      <Card variant="elevated" size="md" style={styles.infoCard}>
+        <Text style={styles.cardTitle}>Payment Summary</Text>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Total Amount</Text>
+          <Text style={styles.infoValue}>₹{bookingData.booking.totalAmount}</Text>
+        </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Advance Paid</Text>
+          <Text style={styles.infoValue}>₹{bookingData.booking.advancePaid}</Text>
+        </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Balance Amount</Text>
+          <Text style={[styles.infoValue, { color: BrandColors.warning }]}>₹{bookingData.booking.balanceAmount}</Text>
+        </View>
+      </Card>
+
+      {/* Notes */}
+      {bookingData.notes && (
+        <Card variant="elevated" size="md" style={styles.infoCard}>
+          <Text style={styles.cardTitle}>Special Notes</Text>
+          <Text style={styles.notesText}>{bookingData.notes}</Text>
+        </Card>
+      )}
     </View>
   );
 
-  // Render customer tab
-  const renderCustomerTab = () => (
+  const renderCustomer = () => (
     <View style={styles.tabContent}>
-      <View style={styles.customerCard}>
+      <Card variant="elevated" size="md" style={styles.infoCard}>
         <Text style={styles.cardTitle}>Customer Information</Text>
 
         <View style={styles.customerHeader}>
           <View style={styles.customerAvatar}>
-            <Text style={styles.avatarText}>
-              {bookingData.customerName.split(' ').map(n => n[0]).join('')}
+            <Text style={styles.customerInitial}>
+              {bookingData.customer.name.split(' ').map(n => n[0]).join('')}
             </Text>
           </View>
           <View style={styles.customerInfo}>
-            <Text style={styles.customerName}>{bookingData.customerName}</Text>
-            <Text style={styles.customerPhone}>{bookingData.customerPhone}</Text>
-            <Text style={styles.customerEmail}>{bookingData.customerEmail}</Text>
+            <Text style={styles.customerName}>{bookingData.customer.name}</Text>
+            <View style={styles.customerRating}>
+              <Ionicons name="star" size={16} color={BrandColors.warning} />
+              <Text style={styles.ratingText}>{bookingData.customer.rating}</Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.customerStats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>12</Text>
-            <Text style={styles.statLabel}>Total Bookings</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>4.8</Text>
-            <Text style={styles.statLabel}>Rating</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>₹45K</Text>
-            <Text style={styles.statLabel}>Total Spent</Text>
-          </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Phone Number</Text>
+          <Text style={styles.infoValue}>{bookingData.customer.phone}</Text>
         </View>
 
-        <TouchableOpacity style={styles.contactButton} onPress={handleContactCustomer}>
-          <Ionicons name="call-outline" size={20} color="#007AFF" />
-          <Text style={styles.contactButtonText}>Contact Customer</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Email</Text>
+          <Text style={styles.infoValue}>{bookingData.customer.email}</Text>
+        </View>
+      </Card>
+
+      <Card variant="elevated" size="md" style={styles.infoCard}>
+        <Text style={styles.cardTitle}>Customer Actions</Text>
+
+        <View style={styles.actionButtons}>
+          <Button
+            title="Call Customer"
+            onPress={handleContactCustomer}
+            variant="primary"
+            size="md"
+            icon="call"
+            style={styles.actionButton}
+          />
+
+          <Button
+            title="Send Message"
+            onPress={() => Alert.alert('Message', 'SMS functionality coming soon!')}
+            variant="outline"
+            size="md"
+            icon="chatbubble"
+            style={styles.actionButton}
+          />
+        </View>
+      </Card>
     </View>
   );
 
-  // Render vehicle tab
-  const renderVehicleTab = () => (
+  const renderVehicle = () => (
     <View style={styles.tabContent}>
-      <View style={styles.vehicleCard}>
+      <Card variant="elevated" size="md" style={styles.infoCard}>
         <Text style={styles.cardTitle}>Vehicle Information</Text>
 
-        <View style={styles.vehicleInfo}>
-          <View style={styles.vehicleIcon}>
-            <Ionicons name="car-outline" size={40} color="#007AFF" />
-          </View>
-          <View style={styles.vehicleDetails}>
-            <Text style={styles.vehicleName}>{bookingData.vehicleName}</Text>
-            <Text style={styles.vehiclePlate}>{bookingData.vehicleLicensePlate}</Text>
-          </View>
+        <Image source={{ uri: bookingData.vehicle.image }} style={styles.vehicleImage} />
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Vehicle Name</Text>
+          <Text style={styles.infoValue}>{bookingData.vehicle.name}</Text>
         </View>
 
-        <View style={styles.vehicleSpecs}>
-          <View style={styles.specItem}>
-            <Text style={styles.specLabel}>Fuel Type</Text>
-            <Text style={styles.specValue}>Petrol</Text>
-          </View>
-          <View style={styles.specItem}>
-            <Text style={styles.specLabel}>Transmission</Text>
-            <Text style={styles.specValue}>Manual</Text>
-          </View>
-          <View style={styles.specItem}>
-            <Text style={styles.specLabel}>Seating</Text>
-            <Text style={styles.specValue}>5 seats</Text>
-          </View>
-          <View style={styles.specItem}>
-            <Text style={styles.specLabel}>Mileage</Text>
-            <Text style={styles.specValue}>18 km/l</Text>
-          </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>License Plate</Text>
+          <Text style={styles.infoValue}>{bookingData.vehicle.licensePlate}</Text>
         </View>
 
-        <TouchableOpacity style={styles.viewVehicleButton}>
-          <Text style={styles.viewVehicleText}>View Vehicle Details</Text>
-          <Ionicons name="chevron-forward" size={16} color="#007AFF" />
-        </TouchableOpacity>
-      </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Vehicle Type</Text>
+          <Text style={styles.infoValue}>{bookingData.vehicle.type}</Text>
+        </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Features</Text>
+          <Text style={styles.infoValue}>{bookingData.vehicle.features.join(', ')}</Text>
+        </View>
+      </Card>
     </View>
   );
 
-  // Render payment tab
-  const renderPaymentTab = () => (
+  const renderPayment = () => (
     <View style={styles.tabContent}>
-      <View style={styles.paymentCard}>
-        <Text style={styles.cardTitle}>Payment Information</Text>
+      <Card variant="elevated" size="md" style={styles.infoCard}>
+        <Text style={styles.cardTitle}>Payment Details</Text>
 
-        <View style={styles.paymentBreakdown}>
-          <View style={styles.paymentItem}>
-            <Text style={styles.paymentLabel}>Total Amount</Text>
-            <Text style={styles.paymentValue}>₹{bookingData.totalAmount}</Text>
-          </View>
-          <View style={styles.paymentItem}>
-            <Text style={styles.paymentLabel}>Security Deposit</Text>
-            <Text style={styles.paymentValue}>₹{bookingData.securityDeposit}</Text>
-          </View>
-          <View style={styles.paymentItem}>
-            <Text style={styles.paymentLabel}>Advance Paid</Text>
-            <Text style={styles.paymentValue}>₹{bookingData.advanceAmount}</Text>
-          </View>
-          <View style={[styles.paymentItem, styles.paymentItemTotal]}>
-            <Text style={styles.paymentLabelTotal}>Remaining Amount</Text>
-            <Text style={styles.paymentValueTotal}>₹{bookingData.remainingAmount}</Text>
-          </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Payment Method</Text>
+          <Text style={styles.infoValue}>{bookingData.payment.method}</Text>
         </View>
 
-        <View style={styles.paymentStatus}>
-          <View style={styles.statusItem}>
-            <Ionicons name="checkmark-circle" size={20} color="#34C759" />
-            <Text style={styles.statusItemText}>Advance Payment Received</Text>
-          </View>
-          <View style={styles.statusItem}>
-            <Ionicons name="time-outline" size={20} color="#FF9500" />
-            <Text style={styles.statusItemText}>Balance Payment Pending</Text>
-          </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Transaction ID</Text>
+          <Text style={styles.infoValue}>{bookingData.payment.transactionId}</Text>
         </View>
-      </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Payment Status</Text>
+          <Text style={[styles.infoValue, { color: BrandColors.accent }]}>
+            {bookingData.payment.status.charAt(0).toUpperCase() + bookingData.payment.status.slice(1)}
+          </Text>
+        </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Paid Amount</Text>
+          <Text style={styles.infoValue}>₹{bookingData.payment.paidAmount}</Text>
+        </View>
+      </Card>
     </View>
   );
 
-  // Render active tab content
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'details':
-        return renderDetailsTab();
-      case 'customer':
-        return renderCustomerTab();
-      case 'vehicle':
-        return renderVehicleTab();
-      case 'payment':
-        return renderPaymentTab();
-      default:
-        return renderDetailsTab();
+      case 'overview': return renderOverview();
+      case 'customer': return renderCustomer();
+      case 'vehicle': return renderVehicle();
+      case 'payment': return renderPayment();
+      default: return renderOverview();
     }
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={BrandColors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Booking Details</Text>
-          <TouchableOpacity style={styles.moreButton}>
-            <Ionicons name="ellipsis-vertical" size={20} color="#666" />
-          </TouchableOpacity>
-        </View>
+
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>Booking Details</Text>
+            <Text style={styles.subtitle}>#{bookingData.id}</Text>
+          </View>
+        </Animated.View>
 
         {/* Tabs */}
-        <View style={styles.tabsContainer}>
+        <Animated.View
+          style={[
+            styles.tabsContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {tabs.map((tab) => (
-              <TouchableOpacity
-                key={tab.id}
-                style={[
-                  styles.tab,
-                  activeTab === tab.id && styles.activeTab,
-                ]}
-                onPress={() => handleTabChange(tab.id)}
-              >
-                <Ionicons
-                  name={tab.icon}
-                  size={16}
-                  color={activeTab === tab.id ? '#007AFF' : '#666'}
-                />
-                <Text style={[
-                  styles.tabText,
-                  activeTab === tab.id && styles.activeTabText,
-                ]}>
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            <View style={styles.tabsRow}>
+              {tabs.map((tab) => (
+                <TouchableOpacity
+                  key={tab.id}
+                  style={[
+                    styles.tab,
+                    activeTab === tab.id && styles.tabActive,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setActiveTab(tab.id);
+                  }}
+                >
+                  <Ionicons
+                    name={tab.icon as any}
+                    size={20}
+                    color={activeTab === tab.id ? BrandColors.primary : BrandColors.textLight}
+                  />
+                  <Text style={[
+                    styles.tabText,
+                    activeTab === tab.id && styles.tabTextActive,
+                  ]}>
+                    {tab.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </ScrollView>
-        </View>
+        </Animated.View>
 
         {/* Tab Content */}
-        {renderTabContent()}
+        <Animated.View
+          style={[
+            styles.contentContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { translateY: slideAnim },
+                { scale: scaleAnim },
+              ],
+            },
+          ]}
+        >
+          {renderTabContent()}
+        </Animated.View>
 
         {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.primaryButton}>
-            <Ionicons name="call-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.primaryButtonText}>Contact Customer</Text>
-          </TouchableOpacity>
+        <Animated.View
+          style={[
+            styles.buttonContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.buttonRow}>
+            <Button
+              title="Change Status"
+              onPress={handleStatusChange}
+              variant="outline"
+              size="lg"
+              icon="swap-horizontal"
+              style={styles.statusButton}
+            />
 
-          <TouchableOpacity style={styles.secondaryButton}>
-            <Ionicons name="create-outline" size={20} color="#007AFF" />
-            <Text style={styles.secondaryButtonText}>Edit Booking</Text>
-          </TouchableOpacity>
-        </View>
+            <Button
+              title="Contact Customer"
+              onPress={handleContactCustomer}
+              variant="primary"
+              size="lg"
+              icon="call"
+              style={styles.contactButton}
+            />
+          </View>
+        </Animated.View>
 
-        <View style={styles.bottomSpacer} />
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: BrandColors.backgroundPrimary,
   },
   scrollView: {
     flex: 1,
   },
+
+  // Header
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.gray50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
+  headerContent: {
+    flex: 1,
   },
-  moreButton: {
-    padding: 8,
+  title: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['2xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
   },
+  subtitle: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
+  },
+
+  // Tabs
   tabsContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  tabsRow: {
+    flexDirection: 'row',
   },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 12,
-    borderRadius: 20,
-    backgroundColor: '#F8F9FA',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    marginRight: Spacing.sm,
+    backgroundColor: BrandColors.gray50,
   },
-  activeTab: {
-    backgroundColor: '#F0F8FF',
+  tabActive: {
+    backgroundColor: BrandColors.primary,
   },
   tabText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 4,
-    fontWeight: '500',
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textLight,
+    marginLeft: Spacing.xs,
   },
-  activeTabText: {
-    color: '#007AFF',
+  tabTextActive: {
+    color: BrandColors.secondary,
+    fontWeight: Typography.fontWeight.medium,
+  },
+
+  // Content
+  contentContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
   tabContent: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    width: '100%',
   },
+
+  // Status Card
   statusCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    marginBottom: Spacing.lg,
   },
-  statusHeader: {
+  statusContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+  },
+  statusLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   statusInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginLeft: Spacing.md,
   },
-  statusText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-    marginLeft: 8,
+  statusTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
   },
-  changeStatusButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#F0F8FF',
-    borderRadius: 16,
+  statusSubtitle: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
   },
-  changeStatusText: {
-    fontSize: 12,
-    color: '#007AFF',
-    fontWeight: '500',
+  bookingDate: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textLight,
   },
-  bookingId: {
-    fontSize: 14,
-    color: '#666',
-  },
-  timelineCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+
+  // Info Cards
+  infoCard: {
+    marginBottom: Spacing.lg,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 16,
-  },
-  timeline: {
-    gap: 16,
-  },
-  timelineItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  timelineDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#007AFF',
-    marginTop: 6,
-    marginRight: 12,
-  },
-  timelineContent: {
-    flex: 1,
-  },
-  timelineLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 4,
-  },
-  timelineValue: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
-  },
-  timelineLocation: {
-    fontSize: 14,
-    color: '#007AFF',
-  },
-  infoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.md,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: BrandColors.borderLight,
   },
   infoLabel: {
-    fontSize: 14,
-    color: '#666',
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
   },
   infoValue: {
-    fontSize: 14,
-    color: '#000',
-    fontWeight: '500',
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.medium,
+    color: BrandColors.textPrimary,
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: Spacing.md,
   },
-  notesContainer: {
-    marginTop: 16,
-  },
-  notesText: {
-    fontSize: 14,
-    color: '#000',
-    marginTop: 8,
-    lineHeight: 20,
-  },
-  customerCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
+
+  // Customer
   customerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   customerAvatar: {
     width: 60,
     height: 60,
-    borderRadius: 30,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.primary,
     alignItems: 'center',
-    marginRight: 16,
+    justifyContent: 'center',
+    marginRight: Spacing.md,
   },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+  customerInitial: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.secondary,
   },
   customerInfo: {
     flex: 1,
   },
   customerName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 4,
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
   },
-  customerPhone: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 2,
+  customerRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  customerEmail: {
-    fontSize: 14,
-    color: '#666',
+  ratingText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+    marginLeft: Spacing.xs,
   },
-  customerStats: {
+
+  // Action Buttons
+  actionButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
   },
-  statItem: {
-    alignItems: 'center',
+  actionButton: {
     flex: 1,
+    marginHorizontal: Spacing.xs,
   },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 4,
+
+  // Vehicle
+  vehicleImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.md,
   },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
+
+  // Notes
+  notesText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
+    lineHeight: 22,
+  },
+
+  // Buttons
+  buttonContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statusButton: {
+    flex: 1,
+    marginRight: Spacing.md,
   },
   contactButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    backgroundColor: '#F0F8FF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  contactButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  vehicleCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  vehicleInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  vehicleIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#F0F8FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  vehicleDetails: {
     flex: 1,
   },
-  vehicleName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 4,
-  },
-  vehiclePlate: {
-    fontSize: 14,
-    color: '#666',
-  },
-  vehicleSpecs: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 16,
-  },
-  specItem: {
-    flex: 1,
-    minWidth: '45%',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 8,
-  },
-  specLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
-  specValue: {
-    fontSize: 14,
-    color: '#000',
-    fontWeight: '500',
-  },
-  viewVehicleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    backgroundColor: '#F0F8FF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  viewVehicleText: {
-    fontSize: 16,
-    color: '#007AFF',
-    marginRight: 8,
-    fontWeight: '500',
-  },
-  paymentCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  paymentBreakdown: {
-    marginBottom: 16,
-  },
-  paymentItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  paymentItemTotal: {
-    borderBottomWidth: 0,
-    marginTop: 8,
-    paddingTop: 12,
-    borderTopWidth: 2,
-    borderTopColor: '#E5E5EA',
-  },
-  paymentLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  paymentValue: {
-    fontSize: 14,
-    color: '#000',
-    fontWeight: '500',
-  },
-  paymentLabelTotal: {
-    fontSize: 16,
-    color: '#000',
-    fontWeight: '600',
-  },
-  paymentValueTotal: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  paymentStatus: {
-    gap: 8,
-  },
-  statusItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  statusItemText: {
-    fontSize: 14,
-    color: '#000',
-    marginLeft: 8,
-  },
-  actionButtons: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  primaryButtonText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    marginLeft: 8,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  secondaryButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  bottomSpacer: {
-    height: 40,
+
+  // Bottom
+  bottomSpacing: {
+    height: Spacing.xl,
   },
 });

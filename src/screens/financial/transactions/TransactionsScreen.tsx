@@ -1,449 +1,690 @@
-import { ThemedView } from '../../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    FlatList,
-    RefreshControl,
+    Alert,
+    Animated,
+    Dimensions,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * Transactions Screen - View all financial transactions
- * Displays comprehensive transaction history with filtering options
- */
+import { Card } from '../../../components/ui/Card';
+import { BorderRadius, BrandColors, Spacing, Typography } from '../../../constants/brandTheme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 export default function TransactionsScreen({ navigation }: any) {
-  const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState('all');
-  const [transactions, setTransactions] = useState([
-    {
-      id: '1',
-      type: 'credit',
-      amount: 4500,
-      description: 'Booking payment - MOV-12345',
-      date: '2025-01-18',
-      time: '14:30',
-      status: 'completed',
-      category: 'booking',
-    },
-    {
-      id: '2',
-      type: 'debit',
-      amount: 200,
-      description: 'Commission fee',
-      date: '2025-01-18',
-      time: '14:30',
-      status: 'completed',
-      category: 'commission',
-    },
-    {
-      id: '3',
-      type: 'credit',
-      amount: 3200,
-      description: 'Booking payment - MOV-12344',
-      date: '2025-01-17',
-      time: '09:15',
-      status: 'completed',
-      category: 'booking',
-    },
-    {
-      id: '4',
-      type: 'debit',
-      amount: 15000,
-      description: 'Withdrawal to bank account',
-      date: '2025-01-16',
-      time: '16:45',
-      status: 'completed',
-      category: 'withdrawal',
-    },
-    {
-      id: '5',
-      type: 'credit',
-      amount: 2800,
-      description: 'Booking payment - MOV-12343',
-      date: '2025-01-15',
-      time: '11:20',
-      status: 'completed',
-      category: 'booking',
-    },
-    {
-      id: '6',
-      type: 'debit',
-      amount: 150,
-      description: 'Maintenance fee',
-      date: '2025-01-14',
-      time: '08:30',
-      status: 'completed',
-      category: 'maintenance',
-    },
-    {
-      id: '7',
-      type: 'credit',
-      amount: 5000,
-      description: 'Booking payment - MOV-12342',
-      date: '2025-01-13',
-      time: '19:45',
-      status: 'completed',
-      category: 'booking',
-    },
-    {
-      id: '8',
-      type: 'debit',
-      amount: 25000,
-      description: 'Withdrawal to bank account',
-      date: '2025-01-12',
-      time: '10:15',
-      status: 'pending',
-      category: 'withdrawal',
-    },
-  ]);
+  const [selectedPeriod, setSelectedPeriod] = useState('month');
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
   const filters = [
-    { key: 'all', label: 'All' },
-    { key: 'credit', label: 'Credits' },
-    { key: 'debit', label: 'Debits' },
-    { key: 'booking', label: 'Bookings' },
-    { key: 'withdrawal', label: 'Withdrawals' },
-    { key: 'commission', label: 'Commission' },
+    { id: 'all', title: 'All', icon: 'list' },
+    { id: 'credit', title: 'Income', icon: 'arrow-down-circle' },
+    { id: 'debit', title: 'Expenses', icon: 'arrow-up-circle' },
+    { id: 'pending', title: 'Pending', icon: 'time' },
   ];
 
-  useEffect(() => {
-    loadTransactions();
-  }, []);
+  const periods = [
+    { id: 'week', title: 'This Week' },
+    { id: 'month', title: 'This Month' },
+    { id: 'quarter', title: 'This Quarter' },
+    { id: 'year', title: 'This Year' },
+  ];
 
-  const loadTransactions = async () => {
-    try {
-      // TODO: Implement actual API call to fetch transactions
-      console.log('Loading transactions...');
-    } catch (error) {
-      console.error('Error loading transactions:', error);
-    }
+  // Mock transaction data
+  const transactions = [
+    {
+      id: 'TXN001',
+      type: 'credit',
+      amount: 5000,
+      description: 'Booking payment from Rajesh Kumar',
+      date: '2024-03-10',
+      time: '10:30 AM',
+      status: 'completed',
+      bookingId: 'BK001',
+      category: 'booking',
+    },
+    {
+      id: 'TXN002',
+      type: 'debit',
+      amount: 2000,
+      description: 'Withdrawal to bank account',
+      date: '2024-03-08',
+      time: '2:15 PM',
+      status: 'completed',
+      bookingId: null,
+      category: 'withdrawal',
+    },
+    {
+      id: 'TXN003',
+      type: 'credit',
+      amount: 4400,
+      description: 'Booking payment from Priya Sharma',
+      date: '2024-03-05',
+      time: '9:45 AM',
+      status: 'pending',
+      bookingId: 'BK002',
+      category: 'booking',
+    },
+    {
+      id: 'TXN004',
+      type: 'credit',
+      amount: 3600,
+      description: 'Booking payment from Amit Patel',
+      date: '2024-03-03',
+      time: '11:20 AM',
+      status: 'completed',
+      bookingId: 'BK003',
+      category: 'booking',
+    },
+    {
+      id: 'TXN005',
+      type: 'debit',
+      amount: 500,
+      description: 'Service fee',
+      date: '2024-03-01',
+      time: '3:30 PM',
+      status: 'completed',
+      bookingId: null,
+      category: 'fee',
+    },
+    {
+      id: 'TXN006',
+      type: 'credit',
+      amount: 2800,
+      description: 'Booking payment from Suresh Kumar',
+      date: '2024-02-28',
+      time: '8:15 AM',
+      status: 'completed',
+      bookingId: 'BK004',
+      category: 'booking',
+    },
+  ];
+
+  const summary = {
+    totalIncome: 15800,
+    totalExpenses: 2500,
+    netAmount: 13300,
+    pendingAmount: 4400,
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadTransactions();
-    setRefreshing(false);
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handleBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.goBack();
   };
 
   const handleFilterChange = (filter: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedFilter(filter);
   };
 
-  const getFilteredTransactions = () => {
-    if (selectedFilter === 'all') {
-      return transactions;
+  const handlePeriodChange = (period: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedPeriod(period);
+  };
+
+  const handleTransactionSelect = (transaction: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert('Transaction Details', `Transaction ID: ${transaction.id}`);
+  };
+
+  const handleExport = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert('Export', 'Export functionality coming soon!');
+  };
+
+  const getTransactionIcon = (type: string, category: string) => {
+    if (type === 'credit') {
+      switch (category) {
+        case 'booking': return 'car';
+        case 'bonus': return 'gift';
+        case 'refund': return 'refresh';
+        default: return 'arrow-down-circle';
+      }
+    } else {
+      switch (category) {
+        case 'withdrawal': return 'arrow-up-circle';
+        case 'fee': return 'card';
+        case 'maintenance': return 'construct';
+        default: return 'arrow-up-circle';
+      }
     }
-    return transactions.filter(transaction =>
-      transaction.type === selectedFilter || transaction.category === selectedFilter
-    );
   };
 
-  const getTransactionIcon = (transaction: any) => {
-    switch (transaction.category) {
-      case 'booking':
-        return 'car-outline';
-      case 'withdrawal':
-        return 'arrow-up-circle-outline';
-      case 'commission':
-        return 'percent-outline';
-      case 'maintenance':
-        return 'construct-outline';
-      default:
-        return transaction.type === 'credit' ? 'arrow-down-circle-outline' : 'arrow-up-circle-outline';
+  const getTransactionColor = (type: string) => {
+    return type === 'credit' ? BrandColors.accent : BrandColors.error;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed': return BrandColors.accent;
+      case 'pending': return BrandColors.warning;
+      case 'failed': return BrandColors.error;
+      default: return BrandColors.textLight;
     }
   };
 
-  const getTransactionColor = (transaction: any) => {
-    if (transaction.status === 'pending') return '#FF9500';
-    return transaction.type === 'credit' ? '#34C759' : '#FF3B30';
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `₹${amount.toLocaleString()}`;
-  };
-
-  const renderTransactionItem = ({ item }: { item: any }) => (
-    <View style={styles.transactionItem}>
-      <View style={styles.transactionIcon}>
-        <Ionicons
-          name={getTransactionIcon(item)}
-          size={20}
-          color={getTransactionColor(item)}
-        />
-      </View>
-      <View style={styles.transactionDetails}>
-        <Text style={styles.transactionDescription}>{item.description}</Text>
-        <Text style={styles.transactionDate}>
-          {item.date} • {item.time}
-        </Text>
-        {item.status === 'pending' && (
-          <Text style={styles.pendingStatus}>Pending</Text>
-        )}
-      </View>
-      <View style={styles.transactionAmount}>
-        <Text style={[
-          styles.amountText,
-          { color: getTransactionColor(item) }
-        ]}>
-          {item.type === 'credit' ? '+' : '-'}{formatCurrency(item.amount)}
-        </Text>
-      </View>
-    </View>
-  );
-
-  const renderFilterTab = (filter: any) => (
-    <TouchableOpacity
-      key={filter.key}
-      style={[
-        styles.filterTab,
-        selectedFilter === filter.key && styles.activeFilterTab,
-      ]}
-      onPress={() => handleFilterChange(filter.key)}
-    >
-      <Text style={[
-        styles.filterTabText,
-        selectedFilter === filter.key && styles.activeFilterTabText,
-      ]}>
-        {filter.label}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <Ionicons name="receipt-outline" size={64} color="#C7C7CC" />
-      <Text style={styles.emptyTitle}>No transactions found</Text>
-      <Text style={styles.emptyMessage}>
-        Your transaction history will appear here
-      </Text>
-    </View>
-  );
-
-  const filteredTransactions = getFilteredTransactions();
+  const filteredTransactions = transactions.filter(transaction => {
+    if (selectedFilter === 'all') return true;
+    if (selectedFilter === 'credit') return transaction.type === 'credit';
+    if (selectedFilter === 'debit') return transaction.type === 'debit';
+    if (selectedFilter === 'pending') return transaction.status === 'pending';
+    return true;
+  });
 
   return (
-    <ThemedView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Transactions</Text>
-        <TouchableOpacity style={styles.exportButton}>
-          <Ionicons name="download-outline" size={20} color="#007AFF" />
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={BrandColors.textPrimary} />
+          </TouchableOpacity>
 
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        <FlatList
-          data={filters}
-          renderItem={({ item }) => renderFilterTab(item)}
-          keyExtractor={(item) => item.key}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterList}
-        />
-      </View>
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>Transactions</Text>
+            <Text style={styles.subtitle}>
+              Track your financial activity
+            </Text>
+          </View>
 
-      {/* Summary Card */}
-      <View style={styles.summaryCard}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Total Credits</Text>
-          <Text style={[styles.summaryValue, { color: '#34C759' }]}>
-            ₹{transactions
-              .filter(t => t.type === 'credit')
-              .reduce((sum, t) => sum + t.amount, 0)
-              .toLocaleString()}
-          </Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>Total Debits</Text>
-          <Text style={[styles.summaryValue, { color: '#FF3B30' }]}>
-            ₹{transactions
-              .filter(t => t.type === 'debit')
-              .reduce((sum, t) => sum + t.amount, 0)
-              .toLocaleString()}
-          </Text>
-        </View>
-      </View>
+          <TouchableOpacity onPress={handleExport} style={styles.exportButton}>
+            <Ionicons name="download" size={24} color={BrandColors.primary} />
+          </TouchableOpacity>
+        </Animated.View>
 
-      {/* Transactions List */}
-      <FlatList
-        data={filteredTransactions}
-        renderItem={renderTransactionItem}
-        keyExtractor={(item) => item.id}
-        style={styles.transactionsList}
-        contentContainerStyle={styles.transactionsListContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={renderEmptyState}
-        showsVerticalScrollIndicator={false}
-      />
-    </ThemedView>
+        {/* Summary Cards */}
+        <Animated.View
+          style={[
+            styles.summaryContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.summaryRow}>
+            <Card variant="elevated" size="md" style={styles.summaryCard}>
+              <View style={styles.summaryContent}>
+                <Ionicons name="arrow-down-circle" size={24} color={BrandColors.accent} />
+                <Text style={styles.summaryValue}>₹{summary.totalIncome.toLocaleString()}</Text>
+                <Text style={styles.summaryLabel}>Total Income</Text>
+              </View>
+            </Card>
+
+            <Card variant="elevated" size="md" style={styles.summaryCard}>
+              <View style={styles.summaryContent}>
+                <Ionicons name="arrow-up-circle" size={24} color={BrandColors.error} />
+                <Text style={styles.summaryValue}>₹{summary.totalExpenses.toLocaleString()}</Text>
+                <Text style={styles.summaryLabel}>Total Expenses</Text>
+              </View>
+            </Card>
+          </View>
+
+          <View style={styles.summaryRow}>
+            <Card variant="elevated" size="md" style={styles.summaryCard}>
+              <View style={styles.summaryContent}>
+                <Ionicons name="wallet" size={24} color={BrandColors.primary} />
+                <Text style={styles.summaryValue}>₹{summary.netAmount.toLocaleString()}</Text>
+                <Text style={styles.summaryLabel}>Net Amount</Text>
+              </View>
+            </Card>
+
+            <Card variant="elevated" size="md" style={styles.summaryCard}>
+              <View style={styles.summaryContent}>
+                <Ionicons name="time" size={24} color={BrandColors.warning} />
+                <Text style={styles.summaryValue}>₹{summary.pendingAmount.toLocaleString()}</Text>
+                <Text style={styles.summaryLabel}>Pending</Text>
+              </View>
+            </Card>
+          </View>
+        </Animated.View>
+
+        {/* Filters */}
+        <Animated.View
+          style={[
+            styles.filtersContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <Card variant="elevated" size="md" style={styles.filtersCard}>
+            <Text style={styles.filtersTitle}>Filter by Type</Text>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.filtersRow}>
+                {filters.map((filter) => (
+                  <TouchableOpacity
+                    key={filter.id}
+                    style={[
+                      styles.filterItem,
+                      selectedFilter === filter.id && styles.filterItemActive,
+                    ]}
+                    onPress={() => handleFilterChange(filter.id)}
+                  >
+                    <Ionicons
+                      name={filter.icon as any}
+                      size={16}
+                      color={selectedFilter === filter.id ? BrandColors.primary : BrandColors.textLight}
+                    />
+                    <Text style={[
+                      styles.filterText,
+                      selectedFilter === filter.id && styles.filterTextActive,
+                    ]}>
+                      {filter.title}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </Card>
+        </Animated.View>
+
+        {/* Period Selection */}
+        <Animated.View
+          style={[
+            styles.periodContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <Card variant="elevated" size="md" style={styles.periodCard}>
+            <Text style={styles.periodTitle}>Time Period</Text>
+
+            <View style={styles.periodRow}>
+              {periods.map((period) => (
+                <TouchableOpacity
+                  key={period.id}
+                  style={[
+                    styles.periodItem,
+                    selectedPeriod === period.id && styles.periodItemActive,
+                  ]}
+                  onPress={() => handlePeriodChange(period.id)}
+                >
+                  <Text style={[
+                    styles.periodText,
+                    selectedPeriod === period.id && styles.periodTextActive,
+                  ]}>
+                    {period.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Card>
+        </Animated.View>
+
+        {/* Transactions List */}
+        <Animated.View
+          style={[
+            styles.transactionsContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { translateY: slideAnim },
+                { scale: scaleAnim },
+              ],
+            },
+          ]}
+        >
+          <Card variant="elevated" size="lg" style={styles.transactionsCard}>
+            <Text style={styles.transactionsTitle}>Transaction History</Text>
+
+            {filteredTransactions.map((transaction) => (
+              <TouchableOpacity
+                key={transaction.id}
+                style={styles.transactionItem}
+                onPress={() => handleTransactionSelect(transaction)}
+              >
+                <View style={styles.transactionLeft}>
+                  <View style={[
+                    styles.transactionIcon,
+                    { backgroundColor: `${getTransactionColor(transaction.type)}20` },
+                  ]}>
+                    <Ionicons
+                      name={getTransactionIcon(transaction.type, transaction.category)}
+                      size={20}
+                      color={getTransactionColor(transaction.type)}
+                    />
+                  </View>
+
+                  <View style={styles.transactionInfo}>
+                    <Text style={styles.transactionDescription}>{transaction.description}</Text>
+                    <Text style={styles.transactionDateTime}>
+                      {transaction.date} • {transaction.time}
+                    </Text>
+                    {transaction.bookingId && (
+                      <Text style={styles.transactionBooking}>Booking #{transaction.bookingId}</Text>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.transactionRight}>
+                  <Text style={[
+                    styles.transactionAmount,
+                    { color: getTransactionColor(transaction.type) },
+                  ]}>
+                    {transaction.type === 'credit' ? '+' : '-'}₹{transaction.amount}
+                  </Text>
+                  <View style={styles.transactionStatus}>
+                    <View style={[
+                      styles.statusDot,
+                      { backgroundColor: getStatusColor(transaction.status) },
+                    ]} />
+                    <Text style={[
+                      styles.statusText,
+                      { color: getStatusColor(transaction.status) },
+                    ]}>
+                      {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </Card>
+        </Animated.View>
+
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: BrandColors.backgroundPrimary,
   },
+  scrollView: {
+    flex: 1,
+  },
+
+  // Header
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.gray50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#000',
+  headerContent: {
+    flex: 1,
+  },
+  title: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['3xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
+  },
+  subtitle: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
   },
   exportButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.gray50,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  filterContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
+
+  // Summary
+  summaryContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
-  filterList: {
-    paddingRight: 20,
-  },
-  filterTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F8F9FA',
-    marginRight: 8,
-  },
-  activeFilterTab: {
-    backgroundColor: '#007AFF',
-  },
-  filterTabText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
-  },
-  activeFilterTabText: {
-    color: '#FFFFFF',
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
   },
   summaryCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  summaryItem: {
     flex: 1,
+    marginHorizontal: Spacing.xs,
+  },
+  summaryContent: {
     alignItems: 'center',
   },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
-  },
   summaryValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
-  summaryDivider: {
-    width: 1,
-    backgroundColor: '#E5E5EA',
-    marginHorizontal: 16,
+  summaryLabel: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
   },
-  transactionsList: {
+
+  // Filters
+  filtersContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  filtersCard: {
+    width: '100%',
+  },
+  filtersTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.md,
+  },
+  filtersRow: {
+    flexDirection: 'row',
+  },
+  filterItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: BrandColors.gray50,
+    marginRight: Spacing.sm,
+    borderWidth: 1,
+    borderColor: BrandColors.borderLight,
+  },
+  filterItemActive: {
+    backgroundColor: BrandColors.primary,
+    borderColor: BrandColors.primary,
+  },
+  filterText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textLight,
+    marginLeft: Spacing.xs,
+  },
+  filterTextActive: {
+    color: BrandColors.secondary,
+    fontWeight: Typography.fontWeight.medium,
+  },
+
+  // Period
+  periodContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  periodCard: {
+    width: '100%',
+  },
+  periodTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.md,
+  },
+  periodRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  periodItem: {
     flex: 1,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: BrandColors.gray50,
+    alignItems: 'center',
+    marginHorizontal: Spacing.xs,
+    borderWidth: 1,
+    borderColor: BrandColors.borderLight,
   },
-  transactionsListContent: {
-    paddingHorizontal: 20,
+  periodItemActive: {
+    backgroundColor: BrandColors.primary,
+    borderColor: BrandColors.primary,
+  },
+  periodText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textLight,
+    textAlign: 'center',
+  },
+  periodTextActive: {
+    color: BrandColors.secondary,
+    fontWeight: Typography.fontWeight.medium,
+  },
+
+  // Transactions
+  transactionsContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  transactionsCard: {
+    width: '100%',
+  },
+  transactionsTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.lg,
   },
   transactionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: BrandColors.borderLight,
+  },
+  transactionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   transactionIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F8F9FA',
-    justifyContent: 'center',
+    borderRadius: BorderRadius.md,
     alignItems: 'center',
-    marginRight: 12,
+    justifyContent: 'center',
+    marginRight: Spacing.md,
   },
-  transactionDetails: {
+  transactionInfo: {
     flex: 1,
   },
   transactionDescription: {
-    fontSize: 14,
-    color: '#000',
-    fontWeight: '500',
-    marginBottom: 4,
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
   },
-  transactionDate: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
+  transactionDateTime: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+    marginBottom: Spacing.xs,
   },
-  pendingStatus: {
-    fontSize: 10,
-    color: '#FF9500',
-    backgroundColor: '#FFF5E6',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
+  transactionBooking: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.xs,
+    color: BrandColors.textLight,
   },
-  transactionAmount: {
+  transactionRight: {
     alignItems: 'flex-end',
   },
-  amountText: {
-    fontSize: 14,
-    fontWeight: '600',
+  transactionAmount: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.bold,
+    marginBottom: Spacing.xs,
   },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
+  transactionStatus: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 60,
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-    marginTop: 16,
-    marginBottom: 8,
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: BorderRadius.full,
+    marginRight: Spacing.xs,
   },
-  emptyMessage: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    paddingHorizontal: 40,
+  statusText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.medium,
+  },
+
+  // Bottom
+  bottomSpacing: {
+    height: Spacing.xl,
   },
 });

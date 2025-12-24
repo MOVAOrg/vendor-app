@@ -1,704 +1,814 @@
-import { ThemedView } from '../../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
+    Animated,
+    Dimensions,
     Image,
-    RefreshControl,
     ScrollView,
     StyleSheet,
-    Switch,
     Text,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * Profile Screen - Main account management screen
- * Displays vendor profile information, settings, and account options
- * Modern, visually appealing design with improved UX
- */
-export default function ProfileScreen() {
-  const [profile, setProfile] = useState({
-    name: 'Amit Sharma',
-    phone: '+91 98765 43210',
-    email: 'amit@email.com',
-    profilePhoto: null,
-    verificationStatus: 'verified',
-    memberSince: 'Jan 2025',
-    businessName: 'Sharma Car Rentals',
-    totalEarnings: '₹1,25,000',
-    totalBookings: 142,
-    rating: 4.8,
-  });
+import { Card } from '../../../components/ui/Card';
+import { BorderRadius, BrandColors, Spacing, Typography } from '../../../constants/brandTheme';
 
-  const [settings, setSettings] = useState({
-    notifications: true,
-    autoAcceptBookings: false,
-    showPhoneToCustomers: true,
-    twoFactorAuth: false,
-  });
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-  const [loading, setLoading] = useState(false);
+export default function ProfileScreen({ navigation }: any) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
 
-  // Load profile data
-  const loadProfile = async () => {
-    setLoading(true);
-    try {
-      // TODO: Implement actual API call to fetch profile data
-      // const profileData = await vendorService.getCurrentVendor();
-      // setProfile(profileData);
-    } catch (error) {
-      console.error('Error loading profile:', error);
-    } finally {
-      setLoading(false);
-    }
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+  const tabs = [
+    { id: 'overview', title: 'Overview', icon: 'person' },
+    { id: 'business', title: 'Business', icon: 'business' },
+    { id: 'documents', title: 'Documents', icon: 'document' },
+    { id: 'settings', title: 'Settings', icon: 'settings' },
+  ];
+
+  // Mock profile data
+  const profileData = {
+    personal: {
+      name: 'Rajesh Kumar',
+      email: 'rajesh.kumar@email.com',
+      phone: '+91 98765 43210',
+      profileImage: 'https://via.placeholder.com/150x150/007AFF/FFFFFF?text=RK',
+      joinDate: '2024-01-15',
+      status: 'verified',
+      rating: 4.8,
+      totalBookings: 45,
+    },
+    business: {
+      businessName: 'Rajesh Car Rentals',
+      businessType: 'Car Rental Service',
+      registrationNumber: 'REG123456789',
+      gstNumber: 'GST123456789',
+      address: '123 Main Street, Mumbai, Maharashtra 400001',
+      establishedDate: '2020-05-15',
+      licenseNumber: 'LIC123456789',
+    },
+    documents: {
+      panCard: 'uploaded',
+      aadharCard: 'uploaded',
+      drivingLicense: 'uploaded',
+      vehicleRC: 'uploaded',
+      insurance: 'uploaded',
+      bankPassbook: 'uploaded',
+    },
+    stats: {
+      totalEarnings: 125000,
+      thisMonthEarnings: 45000,
+      averageRating: 4.8,
+      totalBookings: 45,
+      completedBookings: 42,
+      cancelledBookings: 3,
+    },
   };
 
   useEffect(() => {
-    loadProfile();
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
 
-  // Handle setting toggle
-  const toggleSetting = (setting: keyof typeof settings) => {
-    setSettings(prev => ({
-      ...prev,
-      [setting]: !prev[setting],
-    }));
+  const handleBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.goBack();
   };
 
-  // Handle edit profile
   const handleEditProfile = () => {
-    // TODO: Navigate to edit profile screen
-    console.log('Navigate to edit profile');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate('EditProfileScreen');
   };
 
-  // Handle logout
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: () => {
-            // TODO: Implement logout logic
-            console.log('User logged out');
-          },
-        },
-      ]
-    );
+  const handleTabChange = (tab: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveTab(tab);
+  };
+
+  const handleDocumentUpload = (documentType: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert('Upload Document', `Upload ${documentType} functionality coming soon!`);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'verified': return BrandColors.accent;
+      case 'pending': return BrandColors.warning;
+      case 'rejected': return BrandColors.error;
+      default: return BrandColors.textLight;
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'verified': return 'checkmark-circle';
+      case 'pending': return 'time';
+      case 'rejected': return 'close-circle';
+      default: return 'help-circle';
+    }
+  };
+
+  const renderOverview = () => (
+    <View style={styles.tabContent}>
+      {/* Profile Header */}
+      <Card variant="elevated" size="lg" style={styles.profileCard}>
+        <View style={styles.profileHeader}>
+          <Image source={{ uri: profileData.personal.profileImage }} style={styles.profileImage} />
+
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileName}>{profileData.personal.name}</Text>
+            <Text style={styles.profileEmail}>{profileData.personal.email}</Text>
+            <Text style={styles.profilePhone}>{profileData.personal.phone}</Text>
+
+            <View style={styles.profileStatus}>
+              <Ionicons name={getStatusIcon(profileData.personal.status)} size={16} color={getStatusColor(profileData.personal.status)} />
+              <Text style={[styles.profileStatusText, { color: getStatusColor(profileData.personal.status) }]}>
+                {profileData.personal.status.charAt(0).toUpperCase() + profileData.personal.status.slice(1)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.profileStats}>
+          <View style={styles.profileStat}>
+            <Text style={styles.profileStatValue}>{profileData.personal.rating}</Text>
+            <Text style={styles.profileStatLabel}>Rating</Text>
+          </View>
+
+          <View style={styles.profileStat}>
+            <Text style={styles.profileStatValue}>{profileData.personal.totalBookings}</Text>
+            <Text style={styles.profileStatLabel}>Bookings</Text>
+          </View>
+
+          <View style={styles.profileStat}>
+            <Text style={styles.profileStatValue}>₹{profileData.stats.totalEarnings.toLocaleString()}</Text>
+            <Text style={styles.profileStatLabel}>Earnings</Text>
+          </View>
+        </View>
+      </Card>
+
+      {/* Quick Actions */}
+      <Card variant="elevated" size="md" style={styles.actionsCard}>
+        <Text style={styles.actionsTitle}>Quick Actions</Text>
+
+        <View style={styles.actionsGrid}>
+          <TouchableOpacity style={styles.actionItem} onPress={handleEditProfile}>
+            <LinearGradient
+              colors={[BrandColors.primary, BrandColors.primaryDark]}
+              style={styles.actionGradient}
+            >
+              <Ionicons name="create" size={20} color={BrandColors.secondary} />
+              <Text style={styles.actionText}>Edit Profile</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionItem}>
+            <LinearGradient
+              colors={[BrandColors.accent, BrandColors.accentLight]}
+              style={styles.actionGradient}
+            >
+              <Ionicons name="document" size={20} color={BrandColors.secondary} />
+              <Text style={styles.actionText}>Documents</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionItem}>
+            <LinearGradient
+              colors={[BrandColors.dot, BrandColors.accent]}
+              style={styles.actionGradient}
+            >
+              <Ionicons name="settings" size={20} color={BrandColors.secondary} />
+              <Text style={styles.actionText}>Settings</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionItem}>
+            <LinearGradient
+              colors={[BrandColors.warning, BrandColors.accent]}
+              style={styles.actionGradient}
+            >
+              <Ionicons name="help-circle" size={20} color={BrandColors.secondary} />
+              <Text style={styles.actionText}>Help</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </Card>
+
+      {/* Performance Summary */}
+      <Card variant="elevated" size="lg" style={styles.performanceCard}>
+        <Text style={styles.performanceTitle}>Performance Summary</Text>
+
+        <View style={styles.performanceStats}>
+          <View style={styles.performanceStat}>
+            <Text style={styles.performanceStatValue}>₹{profileData.stats.thisMonthEarnings.toLocaleString()}</Text>
+            <Text style={styles.performanceStatLabel}>This Month</Text>
+          </View>
+
+          <View style={styles.performanceStat}>
+            <Text style={styles.performanceStatValue}>{profileData.stats.completedBookings}</Text>
+            <Text style={styles.performanceStatLabel}>Completed</Text>
+          </View>
+
+          <View style={styles.performanceStat}>
+            <Text style={styles.performanceStatValue}>{profileData.stats.cancelledBookings}</Text>
+            <Text style={styles.performanceStatLabel}>Cancelled</Text>
+          </View>
+        </View>
+      </Card>
+    </View>
+  );
+
+  const renderBusiness = () => (
+    <View style={styles.tabContent}>
+      <Card variant="elevated" size="lg" style={styles.businessCard}>
+        <Text style={styles.businessTitle}>Business Information</Text>
+
+        <View style={styles.businessItem}>
+          <Text style={styles.businessLabel}>Business Name</Text>
+          <Text style={styles.businessValue}>{profileData.business.businessName}</Text>
+        </View>
+
+        <View style={styles.businessItem}>
+          <Text style={styles.businessLabel}>Business Type</Text>
+          <Text style={styles.businessValue}>{profileData.business.businessType}</Text>
+        </View>
+
+        <View style={styles.businessItem}>
+          <Text style={styles.businessLabel}>Registration Number</Text>
+          <Text style={styles.businessValue}>{profileData.business.registrationNumber}</Text>
+        </View>
+
+        <View style={styles.businessItem}>
+          <Text style={styles.businessLabel}>GST Number</Text>
+          <Text style={styles.businessValue}>{profileData.business.gstNumber}</Text>
+        </View>
+
+        <View style={styles.businessItem}>
+          <Text style={styles.businessLabel}>Address</Text>
+          <Text style={styles.businessValue}>{profileData.business.address}</Text>
+        </View>
+
+        <View style={styles.businessItem}>
+          <Text style={styles.businessLabel}>Established Date</Text>
+          <Text style={styles.businessValue}>{profileData.business.establishedDate}</Text>
+        </View>
+
+        <View style={styles.businessItem}>
+          <Text style={styles.businessLabel}>License Number</Text>
+          <Text style={styles.businessValue}>{profileData.business.licenseNumber}</Text>
+        </View>
+      </Card>
+    </View>
+  );
+
+  const renderDocuments = () => (
+    <View style={styles.tabContent}>
+      <Card variant="elevated" size="lg" style={styles.documentsCard}>
+        <Text style={styles.documentsTitle}>Document Status</Text>
+
+        {Object.entries(profileData.documents).map(([document, status]) => (
+          <TouchableOpacity
+            key={document}
+            style={styles.documentItem}
+            onPress={() => handleDocumentUpload(document)}
+          >
+            <View style={styles.documentLeft}>
+              <View style={[
+                styles.documentIcon,
+                { backgroundColor: `${getStatusColor(status)}20` },
+              ]}>
+                <Ionicons name="document" size={20} color={getStatusColor(status)} />
+              </View>
+
+              <View style={styles.documentInfo}>
+                <Text style={styles.documentName}>
+                  {document.charAt(0).toUpperCase() + document.slice(1).replace(/([A-Z])/g, ' $1')}
+                </Text>
+                <Text style={styles.documentSubtitle}>
+                  {status === 'uploaded' ? 'Document uploaded' : 'Document pending'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.documentRight}>
+              <Ionicons name={getStatusIcon(status)} size={20} color={getStatusColor(status)} />
+            </View>
+          </TouchableOpacity>
+        ))}
+      </Card>
+    </View>
+  );
+
+  const renderSettings = () => (
+    <View style={styles.tabContent}>
+      <Card variant="elevated" size="lg" style={styles.settingsCard}>
+        <Text style={styles.settingsTitle}>Account Settings</Text>
+
+        <TouchableOpacity style={styles.settingItem}>
+          <View style={styles.settingLeft}>
+            <Ionicons name="notifications" size={20} color={BrandColors.primary} />
+            <Text style={styles.settingName}>Notifications</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={BrandColors.textLight} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.settingItem}>
+          <View style={styles.settingLeft}>
+            <Ionicons name="lock-closed" size={20} color={BrandColors.primary} />
+            <Text style={styles.settingName}>Privacy & Security</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={BrandColors.textLight} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.settingItem}>
+          <View style={styles.settingLeft}>
+            <Ionicons name="language" size={20} color={BrandColors.primary} />
+            <Text style={styles.settingName}>Language</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={BrandColors.textLight} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.settingItem}>
+          <View style={styles.settingLeft}>
+            <Ionicons name="help-circle" size={20} color={BrandColors.primary} />
+            <Text style={styles.settingName}>Help & Support</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={BrandColors.textLight} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.settingItem}>
+          <View style={styles.settingLeft}>
+            <Ionicons name="information-circle" size={20} color={BrandColors.primary} />
+            <Text style={styles.settingName}>About</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={BrandColors.textLight} />
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.settingItem}>
+          <View style={styles.settingLeft}>
+            <Ionicons name="log-out" size={20} color={BrandColors.error} />
+            <Text style={[styles.settingName, { color: BrandColors.error }]}>Logout</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={BrandColors.textLight} />
+        </TouchableOpacity>
+      </Card>
+    </View>
+  );
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'overview': return renderOverview();
+      case 'business': return renderBusiness();
+      case 'documents': return renderDocuments();
+      case 'settings': return renderSettings();
+      default: return renderOverview();
+    }
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={loadProfile} />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header with Gradient Background */}
-        <View style={styles.headerContainer}>
-          <View style={styles.headerGradient}>
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>Profile</Text>
-              <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
-                <View style={styles.editButtonBackground}>
-                  <Ionicons name="create-outline" size={18} color="#FFFFFF" />
-                </View>
-              </TouchableOpacity>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={BrandColors.textPrimary} />
+          </TouchableOpacity>
+
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>Profile</Text>
+            <Text style={styles.subtitle}>
+              Manage your account information
+            </Text>
+          </View>
+        </Animated.View>
+
+        {/* Tabs */}
+        <Animated.View
+          style={[
+            styles.tabsContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.tabsRow}>
+              {tabs.map((tab) => (
+                <TouchableOpacity
+                  key={tab.id}
+                  style={[
+                    styles.tab,
+                    activeTab === tab.id && styles.tabActive,
+                  ]}
+                  onPress={() => handleTabChange(tab.id)}
+                >
+                  <Ionicons
+                    name={tab.icon as any}
+                    size={20}
+                    color={activeTab === tab.id ? BrandColors.primary : BrandColors.textLight}
+                  />
+                  <Text style={[
+                    styles.tabText,
+                    activeTab === tab.id && styles.tabTextActive,
+                  ]}>
+                    {tab.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </Animated.View>
 
-        {/* Enhanced Profile Section */}
-        <View style={styles.profileSection}>
-          <View style={styles.profileCard}>
-            <View style={styles.profilePhotoContainer}>
-              {profile.profilePhoto ? (
-                <Image source={{ uri: profile.profilePhoto }} style={styles.profilePhoto} />
-              ) : (
-                <View style={styles.profilePhotoPlaceholder}>
-                  <Ionicons name="person" size={50} color="#FFFFFF" />
-                </View>
-              )}
-              <TouchableOpacity style={styles.cameraButton}>
-                <Ionicons name="camera" size={14} color="#007AFF" />
-              </TouchableOpacity>
-            </View>
+        {/* Tab Content */}
+        <Animated.View
+          style={[
+            styles.contentContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { translateY: slideAnim },
+                { scale: scaleAnim },
+              ],
+            },
+          ]}
+        >
+          {renderTabContent()}
+        </Animated.View>
 
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{profile.name}</Text>
-              <Text style={styles.businessName}>{profile.businessName}</Text>
-              <Text style={styles.profilePhone}>{profile.phone}</Text>
-              <Text style={styles.profileEmail}>{profile.email}</Text>
-
-              <View style={styles.verificationBadge}>
-                <Ionicons name="checkmark-circle" size={16} color="#34C759" />
-                <Text style={styles.verificationText}>Verified Partner</Text>
-              </View>
-            </View>
-
-            {/* Stats Cards */}
-            <View style={styles.statsContainer}>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{profile.totalEarnings}</Text>
-                <Text style={styles.statLabel}>Total Earnings</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>{profile.totalBookings}</Text>
-                <Text style={styles.statLabel}>Bookings</Text>
-              </View>
-              <View style={styles.statCard}>
-                <View style={styles.ratingContainer}>
-                  <Ionicons name="star" size={14} color="#FFD700" />
-                  <Text style={styles.statValue}>{profile.rating}</Text>
-                </View>
-                <Text style={styles.statLabel}>Rating</Text>
-              </View>
-            </View>
-
-            <Text style={styles.memberSince}>Member since {profile.memberSince}</Text>
-          </View>
-        </View>
-
-        {/* Account Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account Details</Text>
-          <View style={styles.menuCard}>
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="person-outline" size={20} color="#007AFF" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Personal Information</Text>
-                <Text style={styles.menuItemSubtext}>Update your personal details</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="business-outline" size={20} color="#34C759" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Business Information</Text>
-                <Text style={styles.menuItemSubtext}>Manage business details</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="location-outline" size={20} color="#FF9500" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Location</Text>
-                <Text style={styles.menuItemSubtext}>Service area settings</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="card-outline" size={20} color="#AF52DE" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Bank Details</Text>
-                <Text style={styles.menuItemSubtext}>Payment & withdrawal settings</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Documents */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Documents</Text>
-          <View style={styles.menuCard}>
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="document-text-outline" size={20} color="#FF9500" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>View Documents</Text>
-                <Text style={styles.menuItemSubtext}>All uploaded documents</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="shield-checkmark-outline" size={20} color="#34C759" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Verification Status</Text>
-                <Text style={styles.menuItemSubtext}>Check verification progress</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Settings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferences</Text>
-          <View style={styles.menuCard}>
-            <View style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="notifications-outline" size={20} color="#007AFF" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Notifications</Text>
-                <Text style={styles.menuItemSubtext}>Push notifications</Text>
-              </View>
-              <Switch
-                value={settings.notifications}
-                onValueChange={() => toggleSetting('notifications')}
-                trackColor={{ false: '#E5E5EA', true: '#007AFF' }}
-                thumbColor="#FFFFFF"
-                style={styles.switch}
-              />
-            </View>
-
-            <View style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="checkmark-circle-outline" size={20} color="#34C759" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Auto-accept Bookings</Text>
-                <Text style={styles.menuItemSubtext}>Automatically accept bookings</Text>
-              </View>
-              <Switch
-                value={settings.autoAcceptBookings}
-                onValueChange={() => toggleSetting('autoAcceptBookings')}
-                trackColor={{ false: '#E5E5EA', true: '#007AFF' }}
-                thumbColor="#FFFFFF"
-                style={styles.switch}
-              />
-            </View>
-
-            <View style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="eye-outline" size={20} color="#AF52DE" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Show Phone to Customers</Text>
-                <Text style={styles.menuItemSubtext}>Display contact number</Text>
-              </View>
-              <Switch
-                value={settings.showPhoneToCustomers}
-                onValueChange={() => toggleSetting('showPhoneToCustomers')}
-                trackColor={{ false: '#E5E5EA', true: '#007AFF' }}
-                thumbColor="#FFFFFF"
-                style={styles.switch}
-              />
-            </View>
-
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="language-outline" size={20} color="#FF3B30" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Language</Text>
-                <Text style={styles.menuItemSubtext}>App language settings</Text>
-              </View>
-              <View style={styles.languageContainer}>
-                <Text style={styles.languageText}>English</Text>
-                <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Support */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support & Help</Text>
-          <View style={styles.menuCard}>
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="help-circle-outline" size={20} color="#007AFF" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Help Center</Text>
-                <Text style={styles.menuItemSubtext}>FAQs and guides</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="call-outline" size={20} color="#34C759" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Contact Support</Text>
-                <Text style={styles.menuItemSubtext}>Get help from our team</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="star-outline" size={20} color="#FFD700" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Rate App</Text>
-                <Text style={styles.menuItemSubtext}>Rate us on app store</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Legal */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Legal</Text>
-          <View style={styles.menuCard}>
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="document-outline" size={20} color="#8E8E93" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Terms & Conditions</Text>
-                <Text style={styles.menuItemSubtext}>Read our terms</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="shield-outline" size={20} color="#8E8E93" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>Privacy Policy</Text>
-                <Text style={styles.menuItemSubtext}>Data protection info</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* About */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
-          <View style={styles.menuCard}>
-            <TouchableOpacity style={styles.menuItem}>
-              <View style={styles.menuIconContainer}>
-                <Ionicons name="information-circle-outline" size={20} color="#8E8E93" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuItemText}>App Version</Text>
-                <Text style={styles.menuItemSubtext}>Version 1.0.0</Text>
-              </View>
-              <Text style={styles.versionText}>1.0.0</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <View style={styles.logoutButtonContent}>
-            <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.logoutText}>Logout</Text>
-          </View>
-        </TouchableOpacity>
-
-        <View style={styles.bottomSpacer} />
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: BrandColors.backgroundPrimary,
   },
   scrollView: {
     flex: 1,
   },
-  // Header Styles
-  headerContainer: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  headerGradient: {
-    backgroundColor: '#007AFF',
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
+
+  // Header
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    fontFamily: 'Montserrat-Bold',
-  },
-  editButton: {
-    padding: 8,
-  },
-  editButtonBackground: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 20,
-    padding: 8,
-  },
-
-  // Profile Section Styles
-  profileSection: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    marginTop: -30,
-  },
-  profileCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-    alignItems: 'center',
-  },
-  profilePhotoContainer: {
-    position: 'relative',
-    marginBottom: 20,
-  },
-  profilePhoto: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
-  },
-  profilePhotoPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: '#FFFFFF',
-  },
-  cameraButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  profileInfo: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  profileName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 4,
-    fontFamily: 'Montserrat-Bold',
-  },
-  businessName: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 8,
-    fontFamily: 'OpenSans-Regular',
-  },
-  profilePhone: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 2,
-    fontFamily: 'OpenSans-Regular',
-  },
-  profileEmail: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 12,
-    fontFamily: 'OpenSans-Regular',
-  },
-  verificationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#34C759',
-  },
-  verificationText: {
-    fontSize: 14,
-    color: '#34C759',
-    marginLeft: 4,
-    fontWeight: '600',
-    fontFamily: 'OpenSans-SemiBold',
-  },
-
-  // Stats Container
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 16,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    marginHorizontal: 4,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    fontFamily: 'Montserrat-Bold',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
-    fontFamily: 'OpenSans-Regular',
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  memberSince: {
-    fontSize: 14,
-    color: '#999',
-    fontFamily: 'OpenSans-Regular',
-  },
-
-  // Section Styles
-  section: {
-    marginBottom: 24,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 16,
-    fontFamily: 'Montserrat-Bold',
-  },
-  menuCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-    overflow: 'hidden',
-  },
-
-  // Menu Item Styles
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  menuIconContainer: {
+  backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F8F9FA',
-    justifyContent: 'center',
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.gray50,
     alignItems: 'center',
-    marginRight: 16,
+    justifyContent: 'center',
+    marginRight: Spacing.md,
   },
-  menuContent: {
+  headerContent: {
     flex: 1,
   },
-  menuItemText: {
-    fontSize: 16,
-    color: '#000',
-    fontWeight: '500',
-    marginBottom: 2,
-    fontFamily: 'OpenSans-SemiBold',
+  title: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['3xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
   },
-  menuItemSubtext: {
-    fontSize: 14,
-    color: '#666',
-    fontFamily: 'OpenSans-Regular',
+  subtitle: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
   },
-  languageContainer: {
+
+  // Tabs
+  tabsContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  tabsRow: {
+    flexDirection: 'row',
+  },
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    marginRight: Spacing.sm,
+    backgroundColor: BrandColors.gray50,
+  },
+  tabActive: {
+    backgroundColor: BrandColors.primary,
+  },
+  tabText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textLight,
+    marginLeft: Spacing.xs,
+  },
+  tabTextActive: {
+    color: BrandColors.secondary,
+    fontWeight: Typography.fontWeight.medium,
+  },
+
+  // Content
+  contentContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  tabContent: {
+    width: '100%',
+  },
+
+  // Profile
+  profileCard: {
+    marginBottom: Spacing.lg,
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  profileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: BorderRadius.full,
+    marginRight: Spacing.md,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
+  },
+  profileEmail: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
+    marginBottom: Spacing.xs,
+  },
+  profilePhone: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  profileStatus: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  languageText: {
-    fontSize: 16,
-    color: '#666',
-    marginRight: 4,
-    fontFamily: 'OpenSans-Regular',
+  profileStatusText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    marginLeft: Spacing.xs,
   },
-  versionText: {
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '500',
-    fontFamily: 'OpenSans-SemiBold',
+  profileStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: BrandColors.borderLight,
   },
-  switch: {
-    transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
+  profileStat: {
+    alignItems: 'center',
+  },
+  profileStatValue: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
+  },
+  profileStatLabel: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
   },
 
-  // Logout Button
-  logoutButton: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+  // Actions
+  actionsCard: {
+    marginBottom: Spacing.lg,
   },
-  logoutButtonContent: {
+  actionsTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.lg,
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  actionItem: {
+    width: '48%',
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+  },
+  actionGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#FF3B30',
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
   },
-  logoutText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    marginLeft: 8,
-    fontFamily: 'OpenSans-SemiBold',
+  actionText: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.secondary,
+    marginLeft: Spacing.sm,
   },
-  bottomSpacer: {
+
+  // Performance
+  performanceCard: {
+    marginBottom: Spacing.lg,
+  },
+  performanceTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.lg,
+  },
+  performanceStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  performanceStat: {
+    alignItems: 'center',
+  },
+  performanceStatValue: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['2xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
+  },
+  performanceStatLabel: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+  },
+
+  // Business
+  businessCard: {
+    marginBottom: Spacing.lg,
+  },
+  businessTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.lg,
+  },
+  businessItem: {
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: BrandColors.borderLight,
+  },
+  businessLabel: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+    marginBottom: Spacing.xs,
+  },
+  businessValue: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+  },
+
+  // Documents
+  documentsCard: {
+    marginBottom: Spacing.lg,
+  },
+  documentsTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.lg,
+  },
+  documentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: BrandColors.borderLight,
+  },
+  documentLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  documentIcon: {
+    width: 40,
     height: 40,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
+  },
+  documentInfo: {
+    flex: 1,
+  },
+  documentName: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
+  },
+  documentSubtitle: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+  },
+  documentRight: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Settings
+  settingsCard: {
+    marginBottom: Spacing.lg,
+  },
+  settingsTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.lg,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: BrandColors.borderLight,
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingName: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+    marginLeft: Spacing.md,
+  },
+
+  // Bottom
+  bottomSpacing: {
+    height: Spacing.xl,
   },
 });

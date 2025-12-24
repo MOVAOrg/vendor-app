@@ -1,376 +1,225 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef } from 'react';
 import {
+    ActivityIndicator,
     Animated,
-    Easing,
     StyleSheet,
     Text,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * Loading Screen - Reusable component for loading states
- * Displays animated loading indicators with customizable messages
- */
+import { BorderRadius, BrandColors, Spacing, Typography } from '../../../constants/brandTheme';
+
 interface LoadingScreenProps {
-  type?: 'spinner' | 'dots' | 'pulse' | 'skeleton' | 'progress';
   message?: string;
-  subMessage?: string;
-  progress?: number; // 0-100 for progress type
   showLogo?: boolean;
-  logoText?: string;
-  size?: 'small' | 'medium' | 'large';
-  color?: string;
 }
 
 export default function LoadingScreen({
-  type = 'spinner',
   message = 'Loading...',
-  subMessage,
-  progress = 0,
-  showLogo = false,
-  logoText = 'MOVA',
-  size = 'medium',
-  color = '#007AFF',
+  showLogo = true
 }: LoadingScreenProps) {
-  // Animation values
-  const spinValue = useRef(new Animated.Value(0)).current;
-  const pulseValue = useRef(new Animated.Value(1)).current;
-  const dot1Value = useRef(new Animated.Value(0)).current;
-  const dot2Value = useRef(new Animated.Value(0)).current;
-  const dot3Value = useRef(new Animated.Value(0)).current;
-  const fadeValue = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Size configurations
-  const sizeConfig = {
-    small: { icon: 24, text: 14, spacing: 8 },
-    medium: { icon: 32, text: 16, spacing: 12 },
-    large: { icon: 48, text: 18, spacing: 16 },
-  };
-
-  const config = sizeConfig[size];
-
-  // Spinner animation
   useEffect(() => {
-    if (type === 'spinner') {
-      const spinAnimation = Animated.loop(
-        Animated.timing(spinValue, {
+    // Fade and scale animation
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Continuous rotation animation
+    Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 2000,
+        useNativeDriver: true,
+      })
+    ).start();
+
+    // Continuous pulse animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 1000,
-          easing: Easing.linear,
           useNativeDriver: true,
-        })
-      );
-      spinAnimation.start();
-      return () => spinAnimation.stop();
-    }
-  }, [type, spinValue]);
+        }),
+      ])
+    ).start();
+  }, []);
 
-  // Pulse animation
-  useEffect(() => {
-    if (type === 'pulse') {
-      const pulseAnimation = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseValue, {
-            toValue: 1.2,
-            duration: 600,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseValue, {
-            toValue: 1,
-            duration: 600,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      pulseAnimation.start();
-      return () => pulseAnimation.stop();
-    }
-  }, [type, pulseValue]);
-
-  // Dots animation
-  useEffect(() => {
-    if (type === 'dots') {
-      const createDotAnimation = (value: Animated.Value, delay: number) => {
-        return Animated.loop(
-          Animated.sequence([
-            Animated.delay(delay),
-            Animated.timing(value, {
-              toValue: 1,
-              duration: 400,
-              easing: Easing.inOut(Easing.ease),
-              useNativeDriver: true,
-            }),
-            Animated.timing(value, {
-              toValue: 0,
-              duration: 400,
-              easing: Easing.inOut(Easing.ease),
-              useNativeDriver: true,
-            }),
-          ])
-        );
-      };
-
-      const dot1Animation = createDotAnimation(dot1Value, 0);
-      const dot2Animation = createDotAnimation(dot2Value, 200);
-      const dot3Animation = createDotAnimation(dot3Value, 400);
-
-      dot1Animation.start();
-      dot2Animation.start();
-      dot3Animation.start();
-
-      return () => {
-        dot1Animation.stop();
-        dot2Animation.stop();
-        dot3Animation.stop();
-      };
-    }
-  }, [type, dot1Value, dot2Value, dot3Value]);
-
-  // Fade in animation
-  useEffect(() => {
-    Animated.timing(fadeValue, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeValue]);
-
-  // Render spinner
-  const renderSpinner = () => {
-    const spin = spinValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['0deg', '360deg'],
-    });
-
-    return (
-      <Animated.View style={{ transform: [{ rotate: spin }] }}>
-        <Ionicons name="refresh" size={config.icon} color={color} />
-      </Animated.View>
-    );
-  };
-
-  // Render pulse
-  const renderPulse = () => {
-    return (
-      <Animated.View style={{ transform: [{ scale: pulseValue }] }}>
-        <View style={[styles.pulseCircle, { backgroundColor: color, width: config.icon, height: config.icon }]} />
-      </Animated.View>
-    );
-  };
-
-  // Render dots
-  const renderDots = () => {
-    const getDotOpacity = (value: Animated.Value) => {
-      return value.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0.3, 1],
-      });
-    };
-
-    return (
-      <View style={styles.dotsContainer}>
-        <Animated.View style={[styles.dot, { opacity: getDotOpacity(dot1Value), backgroundColor: color }]} />
-        <Animated.View style={[styles.dot, { opacity: getDotOpacity(dot2Value), backgroundColor: color }]} />
-        <Animated.View style={[styles.dot, { opacity: getDotOpacity(dot3Value), backgroundColor: color }]} />
-      </View>
-    );
-  };
-
-  // Render progress bar
-  const renderProgress = () => {
-    return (
-      <View style={styles.progressContainer}>
-        <View style={[styles.progressBar, { backgroundColor: `${color}20` }]}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                backgroundColor: color,
-                width: `${progress}%`,
-              }
-            ]}
-          />
-        </View>
-        <Text style={[styles.progressText, { fontSize: config.text, color }]}>
-          {Math.round(progress)}%
-        </Text>
-      </View>
-    );
-  };
-
-  // Render skeleton
-  const renderSkeleton = () => {
-    return (
-      <View style={styles.skeletonContainer}>
-        <View style={[styles.skeletonLine, styles.skeletonLineLarge, { backgroundColor: `${color}20` }]} />
-        <View style={[styles.skeletonLine, styles.skeletonLineMedium, { backgroundColor: `${color}20` }]} />
-        <View style={[styles.skeletonLine, styles.skeletonLineSmall, { backgroundColor: `${color}20` }]} />
-      </View>
-    );
-  };
-
-  // Render loading indicator based on type
-  const renderLoadingIndicator = () => {
-    switch (type) {
-      case 'spinner':
-        return renderSpinner();
-      case 'pulse':
-        return renderPulse();
-      case 'dots':
-        return renderDots();
-      case 'progress':
-        return renderProgress();
-      case 'skeleton':
-        return renderSkeleton();
-      default:
-        return renderSpinner();
-    }
-  };
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeValue }]}>
-      <View style={styles.content}>
-        {/* Logo */}
-        {showLogo && (
-          <View style={styles.logoContainer}>
-            <View style={styles.logo}>
-              <Ionicons name="car" size={40} color={color} />
+    <SafeAreaView style={styles.container}>
+      <LinearGradient
+        colors={[BrandColors.backgroundPrimary, BrandColors.gray50]}
+        style={styles.gradient}
+      >
+        <View style={styles.content}>
+          {/* Logo or Icon */}
+          {showLogo && (
+            <Animated.View
+              style={[
+                styles.logoContainer,
+                {
+                  opacity: fadeAnim,
+                  transform: [
+                    { scale: scaleAnim },
+                    { scale: pulseAnim },
+                  ],
+                },
+              ]}
+            >
+              <View style={styles.logoBackground}>
+                <Ionicons name="car-sport" size={60} color={BrandColors.primary} />
+              </View>
+            </Animated.View>
+          )}
+
+          {/* Spinner */}
+          <Animated.View
+            style={[
+              styles.spinnerContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ rotate: spin }],
+              },
+            ]}
+          >
+            <View style={styles.spinner}>
+              <View style={[styles.spinnerDot, styles.spinnerDot1]} />
+              <View style={[styles.spinnerDot, styles.spinnerDot2]} />
+              <View style={[styles.spinnerDot, styles.spinnerDot3]} />
             </View>
-            <Text style={[styles.logoText, { fontSize: config.text + 4, color }]}>
-              {logoText}
-            </Text>
-          </View>
-        )}
+          </Animated.View>
 
-        {/* Loading Indicator */}
-        <View style={[styles.indicatorContainer, { marginTop: showLogo ? config.spacing * 2 : 0 }]}>
-          {renderLoadingIndicator()}
+          {/* Loading Message */}
+          <Animated.View
+            style={[
+              styles.messageContainer,
+              {
+                opacity: fadeAnim,
+              },
+            ]}
+          >
+            <Text style={styles.message}>{message}</Text>
+          </Animated.View>
+
+          {/* Activity Indicator */}
+          <Animated.View
+            style={[
+              styles.indicatorContainer,
+              {
+                opacity: fadeAnim,
+              },
+            ]}
+          >
+            <ActivityIndicator size="large" color={BrandColors.primary} />
+          </Animated.View>
         </View>
-
-        {/* Loading Message */}
-        <Text style={[styles.message, { fontSize: config.text, marginTop: config.spacing }]}>
-          {message}
-        </Text>
-
-        {/* Sub Message */}
-        {subMessage && (
-          <Text style={[styles.subMessage, { fontSize: config.text - 2, marginTop: config.spacing / 2 }]}>
-            {subMessage}
-          </Text>
-        )}
-
-        {/* Additional progress info */}
-        {type === 'progress' && (
-          <View style={styles.progressInfo}>
-            <Text style={[styles.progressInfoText, { fontSize: config.text - 2 }]}>
-              Please wait while we process your request...
-            </Text>
-          </View>
-        )}
-      </View>
-    </Animated.View>
+      </LinearGradient>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 40,
+    backgroundColor: BrandColors.backgroundPrimary,
+  },
+  gradient: {
+    flex: 1,
   },
   content: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xl,
   },
+
+  // Logo
   logoContainer: {
-    alignItems: 'center',
+    marginBottom: Spacing.xl,
   },
-  logo: {
+  logoBackground: {
+    width: 120,
+    height: 120,
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.accent + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: BrandColors.accent,
+  },
+
+  // Spinner
+  spinnerContainer: {
+    marginBottom: Spacing.xl,
+  },
+  spinner: {
     width: 80,
     height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F0F8FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
+    position: 'relative',
   },
-  logoText: {
-    fontWeight: 'bold',
+  spinnerDot: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderRadius: BorderRadius.full,
   },
-  indicatorContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 60,
+  spinnerDot1: {
+    backgroundColor: BrandColors.primary,
+    top: 0,
+    left: 32,
+  },
+  spinnerDot2: {
+    backgroundColor: BrandColors.accent,
+    top: 32,
+    right: 0,
+  },
+  spinnerDot3: {
+    backgroundColor: BrandColors.dot,
+    bottom: 0,
+    left: 32,
+  },
+
+  // Message
+  messageContainer: {
+    marginBottom: Spacing.lg,
   },
   message: {
-    color: '#000',
-    fontWeight: '500',
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
     textAlign: 'center',
   },
-  subMessage: {
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  // Spinner styles
-  pulseCircle: {
-    borderRadius: 50,
-  },
-  // Dots styles
-  dotsContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  // Progress styles
-  progressContainer: {
-    alignItems: 'center',
-    gap: 12,
-  },
-  progressBar: {
-    width: 200,
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  progressText: {
-    fontWeight: '600',
-  },
-  progressInfo: {
-    marginTop: 16,
-  },
-  progressInfoText: {
-    color: '#666',
-    textAlign: 'center',
-  },
-  // Skeleton styles
-  skeletonContainer: {
-    alignItems: 'center',
-    gap: 12,
-  },
-  skeletonLine: {
-    height: 4,
-    borderRadius: 2,
-  },
-  skeletonLineLarge: {
-    width: 200,
-  },
-  skeletonLineMedium: {
-    width: 150,
-  },
-  skeletonLineSmall: {
-    width: 100,
+
+  // Indicator
+  indicatorContainer: {
+    marginTop: Spacing.md,
   },
 });

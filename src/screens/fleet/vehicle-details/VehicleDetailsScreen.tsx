@@ -1,8 +1,10 @@
-import { ThemedView } from '../../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
+    Animated,
+    Dimensions,
     Image,
     ScrollView,
     StyleSheet,
@@ -10,703 +12,637 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * Vehicle Details Screen - View comprehensive vehicle information
- * Displays detailed vehicle specifications, features, pricing, and management options
- */
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { BorderRadius, BrandColors, Spacing, Typography } from '../../../constants/brandTheme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 export default function VehicleDetailsScreen({ navigation, route }: any) {
   const { vehicle } = route.params || {};
-
+  const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Mock vehicle data
-  const vehicleData = {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+  // Mock vehicle data if not provided
+  const vehicleData = vehicle || {
     id: '1',
-    make: 'Maruti',
-    model: 'Swift Dzire',
-    year: '2022',
+    name: 'Toyota Camry 2023',
+    brand: 'Toyota',
+    model: 'Camry',
+    year: '2023',
     color: 'White',
-    licensePlate: 'KA01AB1234',
-    image: 'https://via.placeholder.com/400x300',
-    status: 'active',
-    rating: 4.7,
-    totalBookings: 45,
-    totalEarnings: 87500,
-    mileage: '18 km/l',
+    licensePlate: 'MH01AB1234',
+    type: 'Sedan',
     fuelType: 'Petrol',
-    transmission: 'Manual',
-    seatingCapacity: 5,
-    features: ['AC', 'Power Steering', 'Power Windows', 'Music System', 'Bluetooth'],
-    pricing: {
-      hourlyRate: 150,
-      dailyRate: 1200,
-      weeklyRate: 7500,
-      monthlyRate: 25000,
-    },
-    availability: {
-      isAvailable: true,
-      nextAvailableDate: '2025-01-20',
-      advanceBookingDays: 7,
-      minimumRentalHours: 4,
-    },
-    documents: {
-      rc: 'Valid',
-      insurance: 'Valid',
-      pollution: 'Valid',
-      fitness: 'Valid',
-    },
-    maintenance: {
-      lastService: '2025-01-10',
-      nextService: '2025-04-10',
-      odometer: '45,000 km',
-    },
+    transmission: 'Automatic',
+    seatingCapacity: '5',
+    mileage: '15 km/l',
+    pricePerDay: '2500',
+    status: 'available',
+    rating: 4.8,
+    totalBookings: 45,
+    totalEarnings: '1,25,000',
+    features: ['AC', 'GPS', 'Bluetooth', 'USB', 'Sunroof'],
+    images: [
+      'https://via.placeholder.com/300x200/007AFF/FFFFFF?text=Front+View',
+      'https://via.placeholder.com/300x200/34C759/FFFFFF?text=Side+View',
+      'https://via.placeholder.com/300x200/FF9500/FFFFFF?text=Interior',
+      'https://via.placeholder.com/300x200/FF3B30/FFFFFF?text=Back+View',
+    ],
+    description: 'Well-maintained Toyota Camry with excellent fuel efficiency and comfortable seating. Perfect for city drives and long trips.',
+    location: 'Mumbai, Maharashtra',
+    lastService: '2024-01-15',
+    nextService: '2024-04-15',
   };
 
-  // Tabs configuration
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: 'information-circle-outline' },
-    { id: 'features', label: 'Features', icon: 'star-outline' },
-    { id: 'pricing', label: 'Pricing', icon: 'cash-outline' },
-    { id: 'documents', label: 'Documents', icon: 'document-outline' },
-    { id: 'maintenance', label: 'Maintenance', icon: 'construct-outline' },
+    { id: 'overview', title: 'Overview', icon: 'information-circle' },
+    { id: 'bookings', title: 'Bookings', icon: 'calendar' },
+    { id: 'maintenance', title: 'Maintenance', icon: 'construct' },
+    { id: 'earnings', title: 'Earnings', icon: 'cash' },
   ];
 
-  // Handle tab change
-  const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId);
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handleBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.goBack();
   };
 
-  // Handle edit vehicle
-  const handleEditVehicle = () => {
+  const handleEdit = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.navigate('EditVehicleScreen', { vehicle: vehicleData });
   };
 
-  // Handle toggle availability
-  const handleToggleAvailability = () => {
+  const handleStatusChange = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert(
-      'Toggle Availability',
-      `Are you sure you want to ${vehicleData.availability.isAvailable ? 'disable' : 'enable'} this vehicle?`,
+      'Change Status',
+      'Select new status for this vehicle',
       [
+        { text: 'Available', onPress: () => console.log('Status: Available') },
+        { text: 'Booked', onPress: () => console.log('Status: Booked') },
+        { text: 'Maintenance', onPress: () => console.log('Status: Maintenance') },
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: () => {
-            // TODO: Implement toggle availability API
-            console.log('Toggle availability');
-          },
-        },
       ]
     );
   };
 
-  // Render overview tab
-  const renderOverviewTab = () => (
+  const getStatusColor = () => {
+    switch (vehicleData.status) {
+      case 'available': return BrandColors.accent;
+      case 'booked': return BrandColors.warning;
+      case 'maintenance': return BrandColors.error;
+      default: return BrandColors.textLight;
+    }
+  };
+
+  const getStatusIcon = () => {
+    switch (vehicleData.status) {
+      case 'available': return 'checkmark-circle';
+      case 'booked': return 'time';
+      case 'maintenance': return 'construct';
+      default: return 'help-circle';
+    }
+  };
+
+  const renderOverview = () => (
     <View style={styles.tabContent}>
-      {/* Vehicle Image */}
-      <View style={styles.imageContainer}>
-        <Image source={{ uri: vehicleData.image }} style={styles.vehicleImage} />
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusText}>
-            {vehicleData.availability.isAvailable ? 'Available' : 'Unavailable'}
-          </Text>
-        </View>
-      </View>
+      {/* Vehicle Images */}
+      <Card variant="elevated" size="md" style={styles.imagesCard}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesScroll}>
+          {vehicleData.images.map((image, index) => (
+            <Image key={index} source={{ uri: image }} style={styles.vehicleImage} />
+          ))}
+        </ScrollView>
+      </Card>
 
       {/* Basic Information */}
-      <View style={styles.infoCard}>
+      <Card variant="elevated" size="md" style={styles.infoCard}>
         <Text style={styles.cardTitle}>Basic Information</Text>
+
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Make & Model</Text>
-          <Text style={styles.infoValue}>{vehicleData.make} {vehicleData.model}</Text>
+          <Text style={styles.infoLabel}>Brand & Model</Text>
+          <Text style={styles.infoValue}>{vehicleData.brand} {vehicleData.model}</Text>
         </View>
+
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Year</Text>
           <Text style={styles.infoValue}>{vehicleData.year}</Text>
         </View>
+
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Color</Text>
           <Text style={styles.infoValue}>{vehicleData.color}</Text>
         </View>
+
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>License Plate</Text>
           <Text style={styles.infoValue}>{vehicleData.licensePlate}</Text>
         </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Location</Text>
+          <Text style={styles.infoValue}>{vehicleData.location}</Text>
+        </View>
+      </Card>
+
+      {/* Specifications */}
+      <Card variant="elevated" size="md" style={styles.infoCard}>
+        <Text style={styles.cardTitle}>Specifications</Text>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Vehicle Type</Text>
+          <Text style={styles.infoValue}>{vehicleData.type}</Text>
+        </View>
+
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Fuel Type</Text>
           <Text style={styles.infoValue}>{vehicleData.fuelType}</Text>
         </View>
+
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Transmission</Text>
           <Text style={styles.infoValue}>{vehicleData.transmission}</Text>
         </View>
+
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Seating Capacity</Text>
           <Text style={styles.infoValue}>{vehicleData.seatingCapacity} seats</Text>
         </View>
+
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Mileage</Text>
           <Text style={styles.infoValue}>{vehicleData.mileage}</Text>
         </View>
-      </View>
+      </Card>
 
-      {/* Statistics */}
-      <View style={styles.statsCard}>
-        <Text style={styles.cardTitle}>Performance Statistics</Text>
-        <View style={styles.statsGrid}>
+      {/* Features */}
+      <Card variant="elevated" size="md" style={styles.infoCard}>
+        <Text style={styles.cardTitle}>Features</Text>
+        <View style={styles.featuresContainer}>
+          {vehicleData.features.map((feature, index) => (
+            <View key={index} style={styles.featureItem}>
+              <Ionicons name="checkmark-circle" size={16} color={BrandColors.accent} />
+              <Text style={styles.featureText}>{feature}</Text>
+            </View>
+          ))}
+        </View>
+      </Card>
+
+      {/* Description */}
+      <Card variant="elevated" size="md" style={styles.infoCard}>
+        <Text style={styles.cardTitle}>Description</Text>
+        <Text style={styles.descriptionText}>{vehicleData.description}</Text>
+      </Card>
+    </View>
+  );
+
+  const renderBookings = () => (
+    <View style={styles.tabContent}>
+      <Card variant="elevated" size="md" style={styles.statsCard}>
+        <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{vehicleData.totalBookings}</Text>
             <Text style={styles.statLabel}>Total Bookings</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>₹{vehicleData.totalEarnings.toLocaleString()}</Text>
+            <Text style={styles.statValue}>{vehicleData.rating}</Text>
+            <Text style={styles.statLabel}>Average Rating</Text>
+          </View>
+        </View>
+      </Card>
+
+      <Card variant="elevated" size="md" style={styles.infoCard}>
+        <Text style={styles.cardTitle}>Recent Bookings</Text>
+        <Text style={styles.emptyText}>No recent bookings to display</Text>
+      </Card>
+    </View>
+  );
+
+  const renderMaintenance = () => (
+    <View style={styles.tabContent}>
+      <Card variant="elevated" size="md" style={styles.infoCard}>
+        <Text style={styles.cardTitle}>Service History</Text>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Last Service</Text>
+          <Text style={styles.infoValue}>{vehicleData.lastService}</Text>
+        </View>
+
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Next Service Due</Text>
+          <Text style={styles.infoValue}>{vehicleData.nextService}</Text>
+        </View>
+      </Card>
+
+      <Card variant="elevated" size="md" style={styles.infoCard}>
+        <Text style={styles.cardTitle}>Maintenance Records</Text>
+        <Text style={styles.emptyText}>No maintenance records available</Text>
+      </Card>
+    </View>
+  );
+
+  const renderEarnings = () => (
+    <View style={styles.tabContent}>
+      <Card variant="elevated" size="md" style={styles.statsCard}>
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>₹{vehicleData.totalEarnings}</Text>
             <Text style={styles.statLabel}>Total Earnings</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{vehicleData.rating}</Text>
-            <Text style={styles.statLabel}>Customer Rating</Text>
+            <Text style={styles.statValue}>₹{vehicleData.pricePerDay}</Text>
+            <Text style={styles.statLabel}>Daily Rate</Text>
           </View>
         </View>
-      </View>
+      </Card>
+
+      <Card variant="elevated" size="md" style={styles.infoCard}>
+        <Text style={styles.cardTitle}>Earnings History</Text>
+        <Text style={styles.emptyText}>No earnings data available</Text>
+      </Card>
     </View>
   );
 
-  // Render features tab
-  const renderFeaturesTab = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.featuresCard}>
-        <Text style={styles.cardTitle}>Vehicle Features</Text>
-        <View style={styles.featuresList}>
-          {vehicleData.features.map((feature, index) => (
-            <View key={index} style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={20} color="#34C759" />
-              <Text style={styles.featureText}>{feature}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-
-  // Render pricing tab
-  const renderPricingTab = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.pricingCard}>
-        <Text style={styles.cardTitle}>Pricing Structure</Text>
-        <View style={styles.pricingList}>
-          <View style={styles.pricingItem}>
-            <Text style={styles.pricingLabel}>Hourly Rate</Text>
-            <Text style={styles.pricingValue}>₹{vehicleData.pricing.hourlyRate}</Text>
-          </View>
-          <View style={styles.pricingItem}>
-            <Text style={styles.pricingLabel}>Daily Rate</Text>
-            <Text style={styles.pricingValue}>₹{vehicleData.pricing.dailyRate}</Text>
-          </View>
-          <View style={styles.pricingItem}>
-            <Text style={styles.pricingLabel}>Weekly Rate</Text>
-            <Text style={styles.pricingValue}>₹{vehicleData.pricing.weeklyRate}</Text>
-          </View>
-          <View style={styles.pricingItem}>
-            <Text style={styles.pricingLabel}>Monthly Rate</Text>
-            <Text style={styles.pricingValue}>₹{vehicleData.pricing.monthlyRate}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.availabilityCard}>
-        <Text style={styles.cardTitle}>Availability Settings</Text>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Status</Text>
-          <Text style={[
-            styles.infoValue,
-            vehicleData.availability.isAvailable ? styles.availableText : styles.unavailableText
-          ]}>
-            {vehicleData.availability.isAvailable ? 'Available' : 'Unavailable'}
-          </Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Next Available</Text>
-          <Text style={styles.infoValue}>{vehicleData.availability.nextAvailableDate}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Advance Booking</Text>
-          <Text style={styles.infoValue}>{vehicleData.availability.advanceBookingDays} days</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Minimum Rental</Text>
-          <Text style={styles.infoValue}>{vehicleData.availability.minimumRentalHours} hours</Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  // Render documents tab
-  const renderDocumentsTab = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.documentsCard}>
-        <Text style={styles.cardTitle}>Vehicle Documents</Text>
-        <View style={styles.documentsList}>
-          {Object.entries(vehicleData.documents).map(([doc, status]) => (
-            <View key={doc} style={styles.documentItem}>
-              <View style={styles.documentInfo}>
-                <Ionicons name="document-outline" size={20} color="#007AFF" />
-                <Text style={styles.documentLabel}>
-                  {doc.toUpperCase()} Certificate
-                </Text>
-              </View>
-              <View style={styles.documentStatus}>
-                <Text style={[
-                  styles.statusText,
-                  status === 'Valid' ? styles.validStatus : styles.invalidStatus
-                ]}>
-                  {status}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-
-  // Render maintenance tab
-  const renderMaintenanceTab = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.maintenanceCard}>
-        <Text style={styles.cardTitle}>Maintenance Information</Text>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Last Service</Text>
-          <Text style={styles.infoValue}>{vehicleData.maintenance.lastService}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Next Service Due</Text>
-          <Text style={styles.infoValue}>{vehicleData.maintenance.nextService}</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Current Odometer</Text>
-          <Text style={styles.infoValue}>{vehicleData.maintenance.odometer}</Text>
-        </View>
-      </View>
-
-      <TouchableOpacity style={styles.addMaintenanceButton}>
-        <Ionicons name="add-circle-outline" size={20} color="#007AFF" />
-        <Text style={styles.addMaintenanceText}>Add Maintenance Record</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  // Render active tab content
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'overview':
-        return renderOverviewTab();
-      case 'features':
-        return renderFeaturesTab();
-      case 'pricing':
-        return renderPricingTab();
-      case 'documents':
-        return renderDocumentsTab();
-      case 'maintenance':
-        return renderMaintenanceTab();
-      default:
-        return renderOverviewTab();
+      case 'overview': return renderOverview();
+      case 'bookings': return renderBookings();
+      case 'maintenance': return renderMaintenance();
+      case 'earnings': return renderEarnings();
+      default: return renderOverview();
     }
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={BrandColors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Vehicle Details</Text>
-          <TouchableOpacity style={styles.editButton} onPress={handleEditVehicle}>
-            <Ionicons name="create-outline" size={20} color="#007AFF" />
+
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>{vehicleData.name}</Text>
+            <View style={styles.statusContainer}>
+              <Ionicons name={getStatusIcon()} size={16} color={getStatusColor()} />
+              <Text style={[styles.statusText, { color: getStatusColor() }]}>
+                {vehicleData.status.charAt(0).toUpperCase() + vehicleData.status.slice(1)}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity onPress={handleEdit} style={styles.editButton}>
+            <Ionicons name="create" size={24} color={BrandColors.primary} />
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
         {/* Tabs */}
-        <View style={styles.tabsContainer}>
+        <Animated.View
+          style={[
+            styles.tabsContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {tabs.map((tab) => (
-              <TouchableOpacity
-                key={tab.id}
-                style={[
-                  styles.tab,
-                  activeTab === tab.id && styles.activeTab,
-                ]}
-                onPress={() => handleTabChange(tab.id)}
-              >
-                <Ionicons
-                  name={tab.icon}
-                  size={16}
-                  color={activeTab === tab.id ? '#007AFF' : '#666'}
-                />
-                <Text style={[
-                  styles.tabText,
-                  activeTab === tab.id && styles.activeTabText,
-                ]}>
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            <View style={styles.tabsRow}>
+              {tabs.map((tab) => (
+                <TouchableOpacity
+                  key={tab.id}
+                  style={[
+                    styles.tab,
+                    activeTab === tab.id && styles.tabActive,
+                  ]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setActiveTab(tab.id);
+                  }}
+                >
+                  <Ionicons
+                    name={tab.icon as any}
+                    size={20}
+                    color={activeTab === tab.id ? BrandColors.primary : BrandColors.textLight}
+                  />
+                  <Text style={[
+                    styles.tabText,
+                    activeTab === tab.id && styles.tabTextActive,
+                  ]}>
+                    {tab.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </ScrollView>
-        </View>
+        </Animated.View>
 
         {/* Tab Content */}
-        {renderTabContent()}
+        <Animated.View
+          style={[
+            styles.contentContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { translateY: slideAnim },
+                { scale: scaleAnim },
+              ],
+            },
+          ]}
+        >
+          {renderTabContent()}
+        </Animated.View>
 
         {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              vehicleData.availability.isAvailable ? styles.unavailableButton : styles.availableButton,
-            ]}
-            onPress={handleToggleAvailability}
-          >
-            <Ionicons
-              name={vehicleData.availability.isAvailable ? 'pause-circle-outline' : 'play-circle-outline'}
-              size={20}
-              color={vehicleData.availability.isAvailable ? '#FF3B30' : '#34C759'}
+        <Animated.View
+          style={[
+            styles.buttonContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.buttonRow}>
+            <Button
+              title="Change Status"
+              onPress={handleStatusChange}
+              variant="outline"
+              size="lg"
+              icon="swap-horizontal"
+              style={styles.statusButton}
             />
-            <Text style={[
-              styles.actionButtonText,
-              vehicleData.availability.isAvailable ? styles.unavailableButtonText : styles.availableButtonText,
-            ]}>
-              {vehicleData.availability.isAvailable ? 'Make Unavailable' : 'Make Available'}
-            </Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionButton} onPress={handleEditVehicle}>
-            <Ionicons name="create-outline" size={20} color="#007AFF" />
-            <Text style={styles.actionButtonText}>Edit Vehicle</Text>
-          </TouchableOpacity>
-        </View>
+            <Button
+              title="Edit Vehicle"
+              onPress={handleEdit}
+              variant="primary"
+              size="lg"
+              icon="create"
+              style={styles.editVehicleButton}
+            />
+          </View>
+        </Animated.View>
 
-        <View style={styles.bottomSpacer} />
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: BrandColors.backgroundPrimary,
   },
   scrollView: {
     flex: 1,
   },
+
+  // Header
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.gray50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
+  headerContent: {
+    flex: 1,
+  },
+  title: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['2xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    marginLeft: Spacing.xs,
   },
   editButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.gray50,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+
+  // Tabs
   tabsContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+  },
+  tabsRow: {
+    flexDirection: 'row',
   },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 12,
-    borderRadius: 20,
-    backgroundColor: '#F8F9FA',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    marginRight: Spacing.sm,
+    backgroundColor: BrandColors.gray50,
   },
-  activeTab: {
-    backgroundColor: '#F0F8FF',
+  tabActive: {
+    backgroundColor: BrandColors.primary,
   },
   tabText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 4,
-    fontWeight: '500',
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textLight,
+    marginLeft: Spacing.xs,
   },
-  activeTabText: {
-    color: '#007AFF',
+  tabTextActive: {
+    color: BrandColors.secondary,
+    fontWeight: Typography.fontWeight.medium,
+  },
+
+  // Content
+  contentContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
   tabContent: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    width: '100%',
   },
-  imageContainer: {
-    position: 'relative',
-    marginBottom: 20,
+
+  // Images
+  imagesCard: {
+    marginBottom: Spacing.lg,
+  },
+  imagesScroll: {
+    flexDirection: 'row',
   },
   vehicleImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 12,
+    width: 200,
+    height: 120,
+    borderRadius: BorderRadius.lg,
+    marginRight: Spacing.md,
   },
-  statusBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    backgroundColor: 'rgba(52, 199, 89, 0.9)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  statusText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
+
+  // Info Cards
   infoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    marginBottom: Spacing.lg,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 16,
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.md,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: BrandColors.borderLight,
   },
   infoLabel: {
-    fontSize: 14,
-    color: '#666',
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
   },
   infoValue: {
-    fontSize: 14,
-    color: '#000',
-    fontWeight: '500',
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.medium,
+    color: BrandColors.textPrimary,
   },
-  statsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  statsGrid: {
+
+  // Features
+  featuresContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-  },
-  featuresCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  featuresList: {
-    gap: 12,
+    flexWrap: 'wrap',
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: '50%',
+    marginBottom: Spacing.sm,
   },
   featureText: {
-    fontSize: 16,
-    color: '#000',
-    marginLeft: 12,
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textPrimary,
+    marginLeft: Spacing.sm,
   },
-  pricingCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+
+  // Description
+  descriptionText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
+    lineHeight: 22,
   },
-  pricingList: {
-    gap: 12,
+
+  // Stats
+  statsCard: {
+    marginBottom: Spacing.lg,
   },
-  pricingItem: {
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['2xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
+  },
+  statLabel: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+  },
+
+  // Empty State
+  emptyText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textLight,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+
+  // Buttons
+  buttonContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+  },
+  buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
-  pricingLabel: {
-    fontSize: 16,
-    color: '#000',
+  statusButton: {
+    flex: 1,
+    marginRight: Spacing.md,
   },
-  pricingValue: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  availabilityCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  availableText: {
-    color: '#34C759',
-  },
-  unavailableText: {
-    color: '#FF3B30',
-  },
-  documentsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  documentsList: {
-    gap: 12,
-  },
-  documentItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  documentInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  editVehicleButton: {
     flex: 1,
   },
-  documentLabel: {
-    fontSize: 16,
-    color: '#000',
-    marginLeft: 12,
-  },
-  documentStatus: {
-    alignItems: 'flex-end',
-  },
-  validStatus: {
-    color: '#34C759',
-  },
-  invalidStatus: {
-    color: '#FF3B30',
-  },
-  maintenanceCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  addMaintenanceButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#F0F8FF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    marginBottom: 20,
-  },
-  addMaintenanceText: {
-    fontSize: 16,
-    color: '#007AFF',
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  actionButtons: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-  },
-  availableButton: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#34C759',
-  },
-  unavailableButton: {
-    backgroundColor: '#FFF5F5',
-    borderColor: '#FF3B30',
-  },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginLeft: 8,
-  },
-  availableButtonText: {
-    color: '#34C759',
-  },
-  unavailableButtonText: {
-    color: '#FF3B30',
-  },
-  bottomSpacer: {
-    height: 40,
+
+  // Bottom
+  bottomSpacing: {
+    height: Spacing.xl,
   },
 });

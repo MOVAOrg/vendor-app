@@ -1,431 +1,305 @@
-import { ThemedView } from '../../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
-import NetInfo from '@react-native-community/netinfo';
-import React, { useEffect, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef } from 'react';
 import {
-    Alert,
+    Animated,
     StyleSheet,
     Text,
-    TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * Offline Screen - Handles offline state and connectivity issues
- * Displays offline message with retry options and cached data access
- */
+import { Button } from '../../../components/ui/Button';
+import { BorderRadius, BrandColors, Spacing, Typography } from '../../../constants/brandTheme';
+
 interface OfflineScreenProps {
   onRetry?: () => void;
-  onViewCachedData?: () => void;
-  showCachedDataOption?: boolean;
-  cachedDataAvailable?: boolean;
-  lastSyncTime?: string;
+  showRetry?: boolean;
 }
 
 export default function OfflineScreen({
   onRetry,
-  onViewCachedData,
-  showCachedDataOption = true,
-  cachedDataAvailable = false,
-  lastSyncTime,
+  showRetry = true
 }: OfflineScreenProps) {
-  const [isConnected, setIsConnected] = useState(false);
-  const [connectionType, setConnectionType] = useState<string | null>(null);
-  const [retrying, setRetrying] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const waveAnim = useRef(new Animated.Value(0)).current;
 
-  // Monitor network connectivity
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      setIsConnected(state.isConnected ?? false);
-      setConnectionType(state.type);
-    });
+    // Initial animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-    return unsubscribe;
+    // Continuous wave animation for offline icon
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(waveAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(waveAnim, {
+          toValue: 0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
   }, []);
 
-  // Handle retry connection
-  const handleRetry = async () => {
-    setRetrying(true);
-    try {
-      if (onRetry) {
-        await onRetry();
-      } else {
-        // Default retry logic
-        const netInfo = await NetInfo.fetch();
-        if (netInfo.isConnected) {
-          Alert.alert('Success', 'Connection restored!');
-        } else {
-          Alert.alert('Still Offline', 'Please check your internet connection.');
-        }
-      }
-    } catch (error) {
-      console.error('Retry failed:', error);
-      Alert.alert('Error', 'Failed to reconnect. Please try again.');
-    } finally {
-      setRetrying(false);
+  const handleRetry = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (onRetry) {
+      onRetry();
     }
   };
 
-  // Handle view cached data
-  const handleViewCachedData = () => {
-    if (onViewCachedData) {
-      onViewCachedData();
-    } else {
-      // Default cached data view
-      Alert.alert(
-        'Cached Data',
-        'View previously downloaded data that\'s available offline.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'View', onPress: () => console.log('View cached data') },
-        ]
-      );
-    }
-  };
-
-  // Handle WiFi settings
-  const handleOpenWiFiSettings = () => {
-    Alert.alert(
-      'WiFi Settings',
-      'Open WiFi settings to connect to a network?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Open Settings', onPress: () => console.log('Open WiFi settings') },
-      ]
-    );
-  };
-
-  // Handle mobile data settings
-  const handleOpenMobileDataSettings = () => {
-    Alert.alert(
-      'Mobile Data',
-      'Enable mobile data to connect to the internet?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Open Settings', onPress: () => console.log('Open mobile data settings') },
-      ]
-    );
-  };
-
-  // Get connection status message
-  const getConnectionStatusMessage = () => {
-    if (isConnected) {
-      return `Connected via ${connectionType}`;
-    }
-
-    switch (connectionType) {
-      case 'wifi':
-        return 'WiFi is connected but no internet access';
-      case 'cellular':
-        return 'Mobile data is connected but no internet access';
-      default:
-        return 'No internet connection available';
-    }
-  };
-
-  // Get connection icon
-  const getConnectionIcon = () => {
-    if (isConnected) {
-      return 'wifi';
-    }
-
-    switch (connectionType) {
-      case 'wifi':
-        return 'wifi-outline';
-      case 'cellular':
-        return 'cellular-outline';
-      default:
-        return 'cloud-offline-outline';
-    }
-  };
+  const waveTranslate = waveAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -10],
+  });
 
   return (
-    <ThemedView style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* Offline Illustration */}
-        <View style={styles.illustrationContainer}>
-          <View style={styles.iconContainer}>
-            <Ionicons name={getConnectionIcon()} size={64} color="#FF3B30" />
+        {/* Offline Icon */}
+        <Animated.View
+          style={[
+            styles.iconContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { scale: scaleAnim },
+                { translateY: slideAnim },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.iconBackground}>
+            <Animated.View
+              style={{
+                transform: [{ translateY: waveTranslate }],
+              }}
+            >
+              <Ionicons name="cloud-offline" size={80} color={BrandColors.error} />
+            </Animated.View>
           </View>
+        </Animated.View>
 
-          {/* Connection status indicator */}
-          <View style={styles.statusIndicator}>
-            <View style={[styles.statusDot, { backgroundColor: isConnected ? '#34C759' : '#FF3B30' }]} />
-            <Text style={styles.statusText}>{getConnectionStatusMessage()}</Text>
-          </View>
-        </View>
+        {/* Title and Message */}
+        <Animated.View
+          style={[
+            styles.textContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <Text style={styles.title}>No Internet Connection</Text>
+          <Text style={styles.message}>
+            Please check your internet connection and try again.
+          </Text>
+        </Animated.View>
 
-        {/* Main Message */}
-        <Text style={styles.title}>You're Offline</Text>
-        <Text style={styles.message}>
-          It looks like you're not connected to the internet. Please check your connection and try again.
-        </Text>
+        {/* Connection Status */}
+        <Animated.View
+          style={[
+            styles.statusContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.statusItem}>
+            <Ionicons name="wifi" size={24} color={BrandColors.error} />
+            <Text style={styles.statusText}>Offline</Text>
+          </View>
+        </Animated.View>
 
-        {/* Connection Details */}
-        <View style={styles.connectionDetails}>
-          <View style={styles.detailRow}>
-            <Ionicons name="wifi-outline" size={16} color="#666" />
-            <Text style={styles.detailText}>WiFi: {connectionType === 'wifi' ? 'Connected' : 'Not Connected'}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="cellular-outline" size={16} color="#666" />
-            <Text style={styles.detailText}>Mobile Data: {connectionType === 'cellular' ? 'Connected' : 'Not Connected'}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="globe-outline" size={16} color="#666" />
-            <Text style={styles.detailText}>Internet: {isConnected ? 'Available' : 'Not Available'}</Text>
-          </View>
-        </View>
-
-        {/* Cached Data Info */}
-        {cachedDataAvailable && (
-          <View style={styles.cachedDataContainer}>
-            <Ionicons name="download-outline" size={20} color="#34C759" />
-            <Text style={styles.cachedDataText}>Cached data available</Text>
-            {lastSyncTime && (
-              <Text style={styles.lastSyncText}>Last sync: {lastSyncTime}</Text>
-            )}
-          </View>
+        {/* Retry Button */}
+        {showRetry && (
+          <Animated.View
+            style={[
+              styles.buttonContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <Button
+              title="Retry Connection"
+              onPress={handleRetry}
+              variant="primary"
+              size="lg"
+              icon="refresh"
+              iconPosition="left"
+              style={styles.retryButton}
+            />
+          </Animated.View>
         )}
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={[styles.retryButton, retrying && styles.retryButtonDisabled]}
-            onPress={handleRetry}
-            disabled={retrying}
-          >
-            <Ionicons name="refresh" size={20} color="#FFFFFF" />
-            <Text style={styles.retryButtonText}>
-              {retrying ? 'Retrying...' : 'Try Again'}
-            </Text>
-          </TouchableOpacity>
+        {/* Tips */}
+        <Animated.View
+          style={[
+            styles.tipsContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <Text style={styles.tipsTitle}>Quick Tips:</Text>
 
-          {showCachedDataOption && cachedDataAvailable && (
-            <TouchableOpacity style={styles.cachedDataButton} onPress={handleViewCachedData}>
-              <Ionicons name="folder-outline" size={20} color="#007AFF" />
-              <Text style={styles.cachedDataButtonText}>View Cached Data</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+          <View style={styles.tipsList}>
+            <View style={styles.tipItem}>
+              <Ionicons name="checkmark-circle" size={16} color={BrandColors.accent} />
+              <Text style={styles.tipText}>Check if WiFi or mobile data is enabled</Text>
+            </View>
 
-        {/* Settings Options */}
-        <View style={styles.settingsOptions}>
-          <Text style={styles.settingsTitle}>Connection Settings:</Text>
+            <View style={styles.tipItem}>
+              <Ionicons name="checkmark-circle" size={16} color={BrandColors.accent} />
+              <Text style={styles.tipText}>Try turning on Airplane mode and then off</Text>
+            </View>
 
-          <TouchableOpacity style={styles.settingOption} onPress={handleOpenWiFiSettings}>
-            <Ionicons name="wifi-outline" size={20} color="#007AFF" />
-            <Text style={styles.settingOptionText}>WiFi Settings</Text>
-            <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.settingOption} onPress={handleOpenMobileDataSettings}>
-            <Ionicons name="cellular-outline" size={20} color="#007AFF" />
-            <Text style={styles.settingOptionText}>Mobile Data Settings</Text>
-            <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Troubleshooting Tips */}
-        <View style={styles.tipsContainer}>
-          <Text style={styles.tipsTitle}>💡 Troubleshooting Tips:</Text>
-          <Text style={styles.tipItem}>• Check if WiFi or mobile data is enabled</Text>
-          <Text style={styles.tipItem}>• Try moving to a different location</Text>
-          <Text style={styles.tipItem}>• Restart your router or mobile data</Text>
-          <Text style={styles.tipItem}>• Check if other apps can access the internet</Text>
-          <Text style={styles.tipItem}>• Try turning airplane mode on and off</Text>
-        </View>
-
-        {/* Auto-retry notice */}
-        <View style={styles.autoRetryContainer}>
-          <Ionicons name="sync-outline" size={16} color="#666" />
-          <Text style={styles.autoRetryText}>
-            We'll automatically retry when connection is restored
-          </Text>
-        </View>
+            <View style={styles.tipItem}>
+              <Ionicons name="checkmark-circle" size={16} color={BrandColors.accent} />
+              <Text style={styles.tipText}>Restart your device if the problem persists</Text>
+            </View>
+          </View>
+        </Animated.View>
       </View>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    backgroundColor: BrandColors.backgroundPrimary,
   },
   content: {
+    flex: 1,
     alignItems: 'center',
-    maxWidth: 400,
-  },
-  illustrationContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#FFF5F5',
     justifyContent: 'center',
+    paddingHorizontal: Spacing.xl,
+  },
+
+  // Icon
+  iconContainer: {
+    marginBottom: Spacing.xl,
+  },
+  iconBackground: {
+    width: 160,
+    height: 160,
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.error + '10',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: BrandColors.error + '30',
   },
-  statusIndicator: {
-    flexDirection: 'row',
+
+  // Text
+  textContainer: {
     alignItems: 'center',
-    gap: 8,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: 14,
-    color: '#666',
+    marginBottom: Spacing.xl,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['2xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   message: {
-    fontSize: 16,
-    color: '#666',
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
+    lineHeight: Typography.lineHeight.relaxed * Typography.fontSize.base,
   },
-  connectionDetails: {
-    alignSelf: 'stretch',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-    gap: 8,
+
+  // Status
+  statusContainer: {
+    marginBottom: Spacing.xl,
   },
-  detailRow: {
+  statusItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: BrandColors.error + '10',
+    borderWidth: 1,
+    borderColor: BrandColors.error + '30',
   },
-  detailText: {
-    fontSize: 14,
-    color: '#000',
+  statusText: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.error,
+    marginLeft: Spacing.md,
   },
-  cachedDataContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F9FF',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginBottom: 24,
-    gap: 8,
-  },
-  cachedDataText: {
-    fontSize: 14,
-    color: '#34C759',
-    fontWeight: '500',
-  },
-  lastSyncText: {
-    fontSize: 12,
-    color: '#666',
-  },
-  actionButtons: {
-    gap: 12,
-    marginBottom: 24,
-    alignSelf: 'stretch',
+
+  // Button
+  buttonContainer: {
+    width: '100%',
+    marginBottom: Spacing.xl,
   },
   retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#007AFF',
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 8,
+    width: '100%',
   },
-  retryButtonDisabled: {
-    opacity: 0.5,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  cachedDataButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F8FF',
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  cachedDataButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  settingsOptions: {
-    alignSelf: 'stretch',
-    marginBottom: 24,
-  },
-  settingsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 12,
-  },
-  settingOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-  },
-  settingOptionText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#000',
-    marginLeft: 12,
-  },
+
+  // Tips
   tipsContainer: {
-    alignSelf: 'stretch',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    width: '100%',
+    backgroundColor: BrandColors.backgroundCard,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: BrandColors.borderLight,
   },
   tipsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 8,
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.md,
+  },
+  tipsList: {
+    gap: Spacing.md,
   },
   tipItem: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-    lineHeight: 20,
-  },
-  autoRetryContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    alignItems: 'flex-start',
+    marginBottom: Spacing.sm,
   },
-  autoRetryText: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
+  tipText: {
+    flex: 1,
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+    marginLeft: Spacing.sm,
+    lineHeight: Typography.lineHeight.relaxed * Typography.fontSize.sm,
   },
 });

@@ -1,4 +1,3 @@
-import { ThemedView } from '../../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -11,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { ThemedView } from '../../../components/themed-view';
 
 /**
  * Reports Screen - Generate and view business reports

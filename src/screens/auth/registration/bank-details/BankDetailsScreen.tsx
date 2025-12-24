@@ -1,8 +1,11 @@
-import { ThemedView } from '../../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import React, { useState } from 'react';
 import {
     Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -10,422 +13,706 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * Bank Details Screen - Collect vendor banking information
- * Final step in registration process for payment setup
- */
+// Define color constants
+const COLORS = {
+  primary: '#00242C',
+  white: '#FFFFFF',
+  gray: '#E5E5E5',
+  lightGray: '#F5F5F5',
+  textSecondary: '#666666',
+  success: '#10B981',
+  warning: '#F59E0B',
+};
+
+// Account Types Data
+const ACCOUNT_TYPES = ['Savings', 'Current'];
+
+// Custom Dropdown Component
+const CustomDropdown = ({ visible, onClose, onSelect, options, selectedValue, title }: any) => {
+  return (
+    <Modal visible={visible} transparent animationType="slide">
+      <TouchableOpacity
+        style={styles.modalOverlay}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <View style={styles.dropdownContainer}>
+          {/* Dropdown Header */}
+          <View style={styles.dropdownHeader}>
+            <Text style={styles.dropdownTitle}>{title}</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color={COLORS.primary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Dropdown Options */}
+          <ScrollView
+            style={styles.dropdownScroll}
+            showsVerticalScrollIndicator={false}
+          >
+            {options.map((option: string) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.dropdownItem,
+                  selectedValue === option && styles.dropdownItemSelected
+                ]}
+                onPress={() => {
+                  onSelect(option);
+                  onClose();
+                }}
+              >
+                <Text style={[
+                  styles.dropdownItemText,
+                  selectedValue === option && styles.dropdownItemTextSelected
+                ]}>
+                  {option}
+                </Text>
+                {selectedValue === option && (
+                  <Ionicons name="checkmark" size={20} color={COLORS.white} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+};
+
 export default function BankDetailsScreen({ navigation }: any) {
-  const [bankDetails, setBankDetails] = useState({
+  // Form state management
+  const [formData, setFormData] = useState({
     accountHolderName: '',
     accountNumber: '',
+    confirmAccountNumber: '',
     ifscCode: '',
     bankName: '',
     branchName: '',
-    accountType: 'savings', // savings, current
+    accountType: 'Savings',
     upiId: '',
-    gstNumber: '',
     panNumber: '',
+    aadharNumber: '',
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
 
-  const [loading, setLoading] = useState(false);
+  // Dropdown state management
+  const [showAccountTypeDropdown, setShowAccountTypeDropdown] = useState(false);
 
   // Handle input changes
   const handleInputChange = (field: string, value: string) => {
-    setBankDetails(prev => ({
-      ...prev,
-      [field]: value,
-    }));
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Handle account type selection
-  const handleAccountTypeChange = (type: string) => {
-    setBankDetails(prev => ({
-      ...prev,
-      accountType: type,
-    }));
+  // Auto-detect bank name from IFSC code
+  const handleIFSCChange = (ifsc: string) => {
+    const upperIFSC = ifsc.toUpperCase();
+    handleInputChange('ifscCode', upperIFSC);
+
+    // Auto-detect bank name when IFSC is 4+ characters
+    if (upperIFSC.length >= 4) {
+      const bankCode = upperIFSC.substring(0, 4);
+      // In production, use actual IFSC API
+      // This is a mock implementation
+      const bankNames: { [key: string]: string } = {
+        'SBIN': 'State Bank of India',
+        'HDFC': 'HDFC Bank',
+        'ICIC': 'ICICI Bank',
+        'AXIS': 'Axis Bank',
+        'PUNB': 'Punjab National Bank',
+        'KKBK': 'Kotak Mahindra Bank',
+        'IDIB': 'Indian Bank',
+        'BARB': 'Bank of Baroda',
+        'CNRB': 'Canara Bank',
+        'UTIB': 'Axis Bank',
+      };
+
+      if (bankNames[bankCode]) {
+        handleInputChange('bankName', bankNames[bankCode]);
+      }
+    }
   };
 
-  // Validate form
-  const validateForm = () => {
-    if (!bankDetails.accountHolderName.trim()) {
-      Alert.alert('Error', 'Please enter account holder name');
-      return false;
+  // Verify account
+  const handleVerifyAccount = () => {
+    if (!formData.accountNumber || !formData.ifscCode) {
+      Alert.alert('Required', 'Please enter account number and IFSC code');
+      return;
     }
-    if (!bankDetails.accountNumber.trim()) {
-      Alert.alert('Error', 'Please enter account number');
-      return false;
-    }
-    if (!bankDetails.ifscCode.trim()) {
-      Alert.alert('Error', 'Please enter IFSC code');
-      return false;
-    }
-    if (!bankDetails.bankName.trim()) {
-      Alert.alert('Error', 'Please enter bank name');
-      return false;
-    }
-    if (!bankDetails.panNumber.trim()) {
-      Alert.alert('Error', 'Please enter PAN number');
-      return false;
-    }
-    return true;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsVerified(true);
+    Alert.alert('Verification', 'Bank account verification initiated. You will receive confirmation shortly.');
   };
 
-  // Handle form submission
+  // Form submission handler
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    // Validate account number confirmation
+    if (formData.accountNumber !== formData.confirmAccountNumber) {
+      Alert.alert('Error', 'Account numbers do not match');
+      return;
+    }
 
-    setLoading(true);
+    setIsLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
     try {
-      // TODO: Implement actual API call to save bank details
-      // await vendorService.updateBankDetails(bankDetails);
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      Alert.alert(
-        'Success',
-        'Bank details saved successfully! Your account is now ready.',
-        [
-          {
-            text: 'Continue',
-            onPress: () => {
-              // Navigate to verification pending screen
-              navigation.replace('VerificationPendingScreen');
-            },
-          },
-        ]
-      );
+      // Navigate to next screen
+      navigation.navigate('DocumentUploadScreen');
     } catch (error) {
-      console.error('Error saving bank details:', error);
       Alert.alert('Error', 'Failed to save bank details. Please try again.');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
+  };
+
+  // Back button handler
+  const handleBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.goBack();
+  };
+
+  // Form validation - Relaxed for demo
+  const isFormValid = () => {
+    return formData.accountHolderName.trim().length > 0;
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Bank Details</Text>
-          <View style={styles.placeholder} />
-        </View>
-
-        {/* Progress Indicator */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: '100%' }]} />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header with back button */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
+            </TouchableOpacity>
           </View>
-          <Text style={styles.progressText}>Step 4 of 4</Text>
-        </View>
 
-        {/* Content */}
-        <View style={styles.content}>
-          <Text style={styles.title}>Banking Information</Text>
-          <Text style={styles.subtitle}>
-            Provide your bank details for payments and withdrawals
-          </Text>
+          {/* Title Section */}
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Bank Details</Text>
+            <Text style={styles.subtitle}>Add your bank account for payments</Text>
+          </View>
 
-          {/* Account Details Section */}
+          {/* Bank Account Information Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Account Details</Text>
+            <Text style={styles.sectionTitle}>Bank Account Information</Text>
 
+            {/* Account Holder Name */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Account Holder Name *</Text>
+              <Text style={styles.label}>Account Holder Name</Text>
               <TextInput
                 style={styles.input}
-                value={bankDetails.accountHolderName}
-                onChangeText={(value) => handleInputChange('accountHolderName', value)}
                 placeholder="Enter account holder name"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.accountHolderName}
+                onChangeText={(value) => handleInputChange('accountHolderName', value)}
                 autoCapitalize="words"
+                returnKeyType="next"
               />
             </View>
 
+            {/* Account Number */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Account Number *</Text>
+              <Text style={styles.label}>Account Number</Text>
               <TextInput
-                style={styles.input}
-                value={bankDetails.accountNumber}
-                onChangeText={(value) => handleInputChange('accountNumber', value)}
+                style={[styles.input, styles.numberInput]}
                 placeholder="Enter account number"
-                keyboardType="numeric"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.accountNumber}
+                onChangeText={(value) => handleInputChange('accountNumber', value)}
+                keyboardType="number-pad"
+                maxLength={18}
+                returnKeyType="next"
+                autoComplete="off"
               />
             </View>
 
+            {/* Confirm Account Number */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>IFSC Code *</Text>
+              <Text style={styles.label}>Confirm Account Number</Text>
               <TextInput
-                style={styles.input}
-                value={bankDetails.ifscCode}
-                onChangeText={(value) => handleInputChange('ifscCode', value.toUpperCase())}
-                placeholder="Enter IFSC code"
-                autoCapitalize="characters"
+                style={[styles.input, styles.numberInput]}
+                placeholder="Re-enter account number"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.confirmAccountNumber}
+                onChangeText={(value) => handleInputChange('confirmAccountNumber', value)}
+                keyboardType="number-pad"
+                maxLength={18}
+                returnKeyType="next"
+                autoComplete="off"
               />
             </View>
 
+            {/* IFSC Code and Account Type Row */}
+            <View style={styles.row}>
+              <View style={[styles.inputGroup, styles.halfWidth]}>
+                <Text style={styles.label}>IFSC Code</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="IFSC Code"
+                  placeholderTextColor={COLORS.textSecondary}
+                  value={formData.ifscCode}
+                  onChangeText={handleIFSCChange}
+                  autoCapitalize="characters"
+                  maxLength={11}
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={[styles.inputGroup, styles.halfWidth]}>
+                <Text style={styles.label}>Account Type</Text>
+                <TouchableOpacity
+                  style={styles.dropdownButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setShowAccountTypeDropdown(true);
+                  }}
+                >
+                  <Text style={styles.dropdownButtonText}>
+                    {formData.accountType}
+                  </Text>
+                  <Ionicons name="chevron-down" size={18} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Bank Name */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Bank Name *</Text>
+              <Text style={styles.label}>Bank Name</Text>
               <TextInput
                 style={styles.input}
-                value={bankDetails.bankName}
-                onChangeText={(value) => handleInputChange('bankName', value)}
                 placeholder="Enter bank name"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.bankName}
+                onChangeText={(value) => handleInputChange('bankName', value)}
                 autoCapitalize="words"
+                returnKeyType="next"
               />
             </View>
 
+            {/* Branch Name */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Branch Name</Text>
               <TextInput
                 style={styles.input}
-                value={bankDetails.branchName}
-                onChangeText={(value) => handleInputChange('branchName', value)}
                 placeholder="Enter branch name"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.branchName}
+                onChangeText={(value) => handleInputChange('branchName', value)}
                 autoCapitalize="words"
+                returnKeyType="next"
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Account Type *</Text>
-              <View style={styles.accountTypeContainer}>
-                {['savings', 'current'].map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[
-                      styles.accountTypeOption,
-                      bankDetails.accountType === type && styles.accountTypeOptionSelected,
-                    ]}
-                    onPress={() => handleAccountTypeChange(type)}
-                  >
-                    <Text
-                      style={[
-                        styles.accountTypeText,
-                        bankDetails.accountType === type && styles.accountTypeTextSelected,
-                      ]}
-                    >
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            {/* Verification Status */}
+            <View style={styles.verificationContainer}>
+              <View style={styles.verificationStatus}>
+                <Ionicons
+                  name={isVerified ? 'checkmark-circle' : 'time-outline'}
+                  size={20}
+                  color={isVerified ? COLORS.success : COLORS.warning}
+                />
+                <Text style={[
+                  styles.verificationText,
+                  isVerified && styles.verificationTextVerified
+                ]}>
+                  {isVerified ? 'Verification Initiated' : 'Pending Verification'}
+                </Text>
               </View>
+
+              {!isVerified && (
+                <TouchableOpacity
+                  style={styles.verifyButton}
+                  onPress={handleVerifyAccount}
+                >
+                  <Ionicons name="shield-checkmark-outline" size={18} color={COLORS.white} />
+                  <Text style={styles.verifyButtonText}>Verify Account</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
-          {/* Additional Information Section */}
+          {/* UPI Information Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Additional Information</Text>
+            <Text style={styles.sectionTitle}>UPI Information</Text>
 
+            {/* UPI ID */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>UPI ID (Optional)</Text>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>UPI ID</Text>
+                <Text style={styles.optionalTag}>Optional</Text>
+              </View>
               <TextInput
                 style={styles.input}
-                value={bankDetails.upiId}
-                onChangeText={(value) => handleInputChange('upiId', value)}
-                placeholder="Enter UPI ID"
+                placeholder="yourname@upi"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.upiId}
+                onChangeText={(value) => handleInputChange('upiId', value.toLowerCase())}
                 autoCapitalize="none"
+                returnKeyType="next"
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>GST Number (Optional)</Text>
-              <TextInput
-                style={styles.input}
-                value={bankDetails.gstNumber}
-                onChangeText={(value) => handleInputChange('gstNumber', value.toUpperCase())}
-                placeholder="Enter GST number"
-                autoCapitalize="characters"
-              />
+            {/* Info Box */}
+            <View style={styles.infoBox}>
+              <Ionicons name="information-circle-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.infoText}>
+                UPI ID enables instant payments and faster transactions
+              </Text>
             </View>
+          </View>
 
+          {/* KYC Documents Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>KYC Documents</Text>
+
+            {/* PAN Number */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>PAN Number *</Text>
+              <Text style={styles.label}>PAN Number</Text>
               <TextInput
-                style={styles.input}
-                value={bankDetails.panNumber}
-                onChangeText={(value) => handleInputChange('panNumber', value.toUpperCase())}
+                style={[styles.input, styles.numberInput]}
                 placeholder="Enter PAN number"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.panNumber}
+                onChangeText={(value) => handleInputChange('panNumber', value.toUpperCase())}
                 autoCapitalize="characters"
                 maxLength={10}
+                returnKeyType="next"
               />
+              <Text style={styles.helperText}>Format: ABCDE1234F</Text>
+            </View>
+
+            {/* Aadhar Number */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Aadhar Number</Text>
+              <TextInput
+                style={[styles.input, styles.numberInput]}
+                placeholder="Enter Aadhar number"
+                placeholderTextColor={COLORS.textSecondary}
+                value={formData.aadharNumber}
+                onChangeText={(value) => handleInputChange('aadharNumber', value)}
+                keyboardType="number-pad"
+                maxLength={12}
+                returnKeyType="done"
+              />
+              <Text style={styles.helperText}>12-digit Aadhar number</Text>
             </View>
           </View>
 
-          {/* Security Notice */}
-          <View style={styles.noticeContainer}>
-            <Ionicons name="shield-checkmark" size={20} color="#34C759" />
-            <Text style={styles.noticeText}>
-              Your banking information is encrypted and securely stored. We never share your financial details.
-            </Text>
+          {/* Continue Button */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[
+                styles.continueButton,
+                (!isFormValid() || isLoading) && styles.continueButtonDisabled
+              ]}
+              onPress={handleSubmit}
+              disabled={!isFormValid() || isLoading}
+            >
+              <Text style={styles.continueButtonText}>
+                {isLoading ? 'Saving...' : 'Continue'}
+              </Text>
+              {!isLoading && (
+                <Ionicons name="arrow-forward" size={20} color={COLORS.white} />
+              )}
+            </TouchableOpacity>
           </View>
 
-          {/* Submit Button */}
-          <TouchableOpacity
-            style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={loading}
-          >
-            <Text style={styles.submitButtonText}>
-              {loading ? 'Saving...' : 'Complete Registration'}
-            </Text>
-          </TouchableOpacity>
+          {/* Bottom Spacing for keyboard */}
+          <View style={styles.bottomSpacing} />
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-          <View style={styles.bottomSpacer} />
-        </View>
-      </ScrollView>
-    </ThemedView>
+      {/* Account Type Dropdown Modal */}
+      <CustomDropdown
+        visible={showAccountTypeDropdown}
+        onClose={() => setShowAccountTypeDropdown(false)}
+        onSelect={(value: string) => {
+          handleInputChange('accountType', value);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }}
+        options={ACCOUNT_TYPES}
+        selectedValue={formData.accountType}
+        title="Select Account Type"
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // Container Styles
   container: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+  },
+  keyboardView: {
     flex: 1,
   },
   scrollView: {
     flex: 1,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+  },
+
+  // Header Styles
+  header: {
+    paddingVertical: 16,
   },
   backButton: {
-    padding: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.lightGray,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  placeholder: {
-    width: 40,
-  },
-  progressContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E5EA',
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#34C759',
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  content: {
-    paddingHorizontal: 20,
+
+  // Title Styles
+  titleContainer: {
+    marginTop: 8,
+    marginBottom: 32,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#000',
+    color: COLORS.primary,
     marginBottom: 8,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
-    marginBottom: 32,
-    lineHeight: 22,
+    color: COLORS.textSecondary,
+    lineHeight: 24,
   },
+
+  // Section Styles
   section: {
     marginBottom: 32,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#000',
+    color: COLORS.primary,
     marginBottom: 16,
   },
+
+  // Input Group Styles
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   label: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#000',
+    fontWeight: '600',
+    color: COLORS.primary,
     marginBottom: 8,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#000',
-    backgroundColor: '#FFFFFF',
-  },
-  accountTypeContainer: {
+  labelRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  optionalTag: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+  },
+  input: {
+    height: 56,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: COLORS.gray,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    color: COLORS.primary,
+  },
+  numberInput: {
+    letterSpacing: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 16,
+  },
+  helperText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 6,
+    marginLeft: 4,
+  },
+
+  // Dropdown Button Styles
+  dropdownButton: {
+    height: 56,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: COLORS.gray,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dropdownButtonText: {
+    fontSize: 15,
+    color: COLORS.primary,
+  },
+
+  // Row Layout Styles
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: 12,
   },
-  accountTypeOption: {
+  halfWidth: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
   },
-  accountTypeOptionSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#F0F8FF',
-  },
-  accountTypeText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  accountTypeTextSelected: {
-    color: '#007AFF',
-    fontWeight: '500',
-  },
-  noticeContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#F0FDF4',
+
+  // Verification Styles
+  verificationContainer: {
+    backgroundColor: COLORS.lightGray,
     padding: 16,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#34C759',
-    marginBottom: 24,
+    marginTop: 8,
   },
-  noticeText: {
-    flex: 1,
+  verificationStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  verificationText: {
     fontSize: 14,
-    color: '#34C759',
-    marginLeft: 12,
+    fontWeight: '600',
+    color: COLORS.warning,
+  },
+  verificationTextVerified: {
+    color: COLORS.success,
+  },
+  verifyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    height: 44,
+    borderRadius: 10,
+    gap: 8,
+  },
+  verifyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+
+  // Info Box Styles
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 8,
+    gap: 12,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.primary,
     lineHeight: 20,
   },
-  submitButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 20,
+
+  // Button Styles
+  buttonContainer: {
+    marginTop: 16,
+    marginBottom: 24,
   },
-  submitButtonDisabled: {
+  continueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    height: 56,
+    borderRadius: 12,
+    gap: 8,
+  },
+  continueButtonDisabled: {
+    backgroundColor: COLORS.gray,
     opacity: 0.5,
   },
-  submitButtonText: {
+  continueButtonText: {
     fontSize: 16,
-    color: '#FFFFFF',
     fontWeight: '600',
+    color: COLORS.white,
   },
-  bottomSpacer: {
+
+  // Bottom Spacing
+  bottomSpacing: {
     height: 40,
+  },
+
+  // Modal & Dropdown Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  dropdownContainer: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '40%',
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray,
+  },
+  dropdownTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  dropdownScroll: {
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  dropdownItemSelected: {
+    backgroundColor: COLORS.primary,
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: COLORS.primary,
+  },
+  dropdownItemTextSelected: {
+    color: COLORS.white,
+    fontWeight: '600',
   },
 });

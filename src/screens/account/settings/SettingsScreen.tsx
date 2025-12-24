@@ -1,5 +1,5 @@
-import { ThemedView } from '../../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import React, { useState } from 'react';
 import {
     Alert,
@@ -10,12 +10,15 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { ThemedView } from '../../../components/themed-view';
+import { AuthService } from '../../../services/auth/authService';
 
 /**
  * Settings Screen - App preferences and configurations
  * Manages notification settings, privacy, security, and app preferences
  */
 export default function SettingsScreen() {
+  const navigation = useNavigation();
   const [settings, setSettings] = useState({
     // Notifications
     pushNotifications: true,
@@ -121,6 +124,40 @@ export default function SettingsScreen() {
           onPress: () => {
             // TODO: Implement backup
             Alert.alert('Success', 'Data backed up successfully');
+          },
+        },
+      ]
+    );
+  };
+
+  // Logout function
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Call logout service
+              const result = await AuthService.logout();
+
+              if (result.success) {
+                // Navigate to authentication stack (login screen)
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: 'AuthStack' }],
+                });
+              } else {
+                Alert.alert('Error', result.error || 'Failed to logout. Please try again.');
+              }
+            } catch (error) {
+              console.error('Logout error:', error);
+              Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+            }
           },
         },
       ]
@@ -559,6 +596,19 @@ export default function SettingsScreen() {
             <TouchableOpacity style={styles.backupButton} onPress={backupNow}>
               <Text style={styles.backupButtonText}>Backup Now</Text>
             </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Account Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account</Text>
+
+          {renderSettingItem(
+            'log-out-outline',
+            'Logout',
+            'Sign out of your account',
+            handleLogout,
+            <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
           )}
         </View>
 

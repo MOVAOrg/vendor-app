@@ -1,89 +1,190 @@
-import React, { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Dimensions, StatusBar, StyleSheet, Text, View } from 'react-native';
+
+import { FONT_FAMILIES } from '../../../config/fonts';
+
+const { width, height } = Dimensions.get('window');
+
+// Define color constants
+const COLORS = {
+  primary: '#00242C',
+  white: '#FFFFFF',
+};
 
 /**
  * Splash Screen Component
- * Shows app logo and loading indicator while app initializes
- * Navigates to appropriate screen based on authentication status
+ * Professional and sleek splash animation for Mova car rental app
+ * Clean brand color transition with logo
  */
-export default function SplashScreen({ navigation }: any) {
-  useEffect(() => {
-    // Simulate app initialization time
-    const timer = setTimeout(() => {
-      // TODO: Check authentication status and navigate accordingly
-      // For now, navigate to get-started screen
-      navigation.replace('GetStartedScreen');
-    }, 3000);
+export default function SplashScreen() {
+  // Animation values
+  const logoScale = useRef(new Animated.Value(0.3)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const textOpacity = useRef(new Animated.Value(0)).current;
+  const slideUp = useRef(new Animated.Value(30)).current;
 
-    return () => clearTimeout(timer);
-  }, [navigation]);
+  useEffect(() => {
+    // Haptic feedback on load
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    startAnimation();
+  }, []);
+
+  const startAnimation = () => {
+    // Logo entrance animation
+    Animated.parallel([
+      // Logo fade in
+      Animated.timing(logoOpacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      // Logo scale up
+      Animated.spring(logoScale, {
+        toValue: 1,
+        tension: 40,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Text slide up animation after logo appears
+      Animated.parallel([
+        Animated.timing(textOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideUp, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={COLORS.primary}
+        translucent={false}
+      />
+
+      {/* Logo Container */}
       <View style={styles.content}>
-        {/* App Logo */}
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>🚗</Text>
-        </View>
+        <Animated.View
+          style={[
+            styles.logoContainer,
+            {
+              opacity: logoOpacity,
+              transform: [{ scale: logoScale }],
+            },
+          ]}
+        >
+          <Image
+            source={require('../../../assets/images/logo/MOVLO.png')}
+            style={styles.logo}
+            contentFit="contain"
+          />
+        </Animated.View>
 
-        {/* App Name */}
-        <Text style={styles.appName}>Mova Vendor</Text>
-        <Text style={styles.tagline}>Your Car Rental Partner</Text>
-
-        {/* Loading Indicator */}
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
+        {/* App Name/Tagline */}
+        <Animated.View
+          style={[
+            styles.textContainer,
+            {
+              opacity: textOpacity,
+              transform: [{ translateY: slideUp }],
+            },
+          ]}
+        >
+          <Text style={styles.appName}>MOVA</Text>
+          <View style={styles.divider} />
+          <Text style={styles.tagline}>Vendor Platform</Text>
+        </Animated.View>
       </View>
-    </SafeAreaView>
+
+      {/* Footer */}
+      <Animated.View
+        style={[
+          styles.footer,
+          {
+            opacity: textOpacity,
+          },
+        ]}
+      >
+        <Text style={styles.footerText}>Powered by Mova</Text>
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Container
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.primary,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 40,
   },
+
+  // Logo Styles
   logoContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    justifyContent: 'center',
+    marginBottom: 40,
   },
-  logoText: {
-    fontSize: 60,
+  logo: {
+    width: 140,
+    height: 140,
+  },
+
+  // Text Styles
+  textContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   appName: {
-    fontSize: 28,
+    fontFamily: FONT_FAMILIES.spaceGrotesk.bold,
+    fontSize: 42,
     fontWeight: 'bold',
-    color: '#1A1A1A',
-    marginBottom: 8,
-    fontFamily: 'Montserrat-Bold',
+    color: COLORS.white,
+    letterSpacing: 8,
+    marginBottom: 12,
+  },
+  divider: {
+    width: 60,
+    height: 3,
+    backgroundColor: COLORS.white,
+    marginBottom: 12,
+    borderRadius: 2,
   },
   tagline: {
-    fontSize: 16,
-    color: '#666666',
-    marginBottom: 60,
-    fontFamily: 'OpenSans-Regular',
+    fontFamily: FONT_FAMILIES.openSans.regular,
+    fontSize: 14,
+    color: COLORS.white,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    opacity: 0.8,
   },
-  loadingContainer: {
+
+  // Footer
+  footer: {
+    paddingBottom: 40,
     alignItems: 'center',
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 14,
-    color: '#666666',
-    fontFamily: 'OpenSans-Regular',
+  footerText: {
+    fontFamily: FONT_FAMILIES.openSans.regular,
+    fontSize: 12,
+    color: COLORS.white,
+    opacity: 0.6,
+    letterSpacing: 1,
   },
 });

@@ -1,468 +1,265 @@
-import { ThemedView } from '../../components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useRef } from 'react';
 import {
-    Alert,
+    Animated,
     StyleSheet,
     Text,
-    TouchableOpacity,
-    View,
+    View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * Error Screen - Reusable component for error states
- * Displays error messages with retry options and support contact
- */
+import { Button } from '../../../components/ui/Button';
+import { BorderRadius, BrandColors, Spacing, Typography } from '../../../constants/brandTheme';
+
 interface ErrorScreenProps {
-  type: 'network' | 'server' | 'generic' | 'permission' | 'maintenance';
   title?: string;
   message?: string;
   errorCode?: string;
   onRetry?: () => void;
-  onContactSupport?: () => void;
+  onGoBack?: () => void;
   showRetry?: boolean;
-  showSupport?: boolean;
+  showGoBack?: boolean;
 }
 
 export default function ErrorScreen({
-  type,
-  title,
-  message,
+  title = 'Something went wrong',
+  message = 'We encountered an unexpected error. Please try again.',
   errorCode,
   onRetry,
-  onContactSupport,
+  onGoBack,
   showRetry = true,
-  showSupport = true,
+  showGoBack = true
 }: ErrorScreenProps) {
-  // Get error configuration based on type
-  const getErrorConfig = () => {
-    switch (type) {
-      case 'network':
-        return {
-          icon: 'wifi-outline',
-          iconColor: '#FF3B30',
-          defaultTitle: 'No Internet Connection',
-          defaultMessage: 'Please check your internet connection and try again. Make sure you\'re connected to WiFi or mobile data.',
-          illustration: '📶',
-        };
-      case 'server':
-        return {
-          icon: 'server-outline',
-          iconColor: '#FF9500',
-          defaultTitle: 'Server Error',
-          defaultMessage: 'Something went wrong on our end. Our team has been notified and is working to fix this issue.',
-          illustration: '🔧',
-        };
-      case 'permission':
-        return {
-          icon: 'lock-closed-outline',
-          iconColor: '#AF52DE',
-          defaultTitle: 'Permission Required',
-          defaultMessage: 'This feature requires additional permissions. Please enable them in your device settings.',
-          illustration: '🔐',
-        };
-      case 'maintenance':
-        return {
-          icon: 'construct-outline',
-          iconColor: '#007AFF',
-          defaultTitle: 'Under Maintenance',
-          defaultMessage: 'MOVA is currently under maintenance. We\'ll be back soon with improvements and new features.',
-          illustration: '🛠️',
-        };
-      case 'generic':
-      default:
-        return {
-          icon: 'alert-circle-outline',
-          iconColor: '#FF3B30',
-          defaultTitle: 'Something Went Wrong',
-          defaultMessage: 'We encountered an unexpected error. Please try again or contact support if the problem persists.',
-          illustration: '⚠️',
-        };
-    }
-  };
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
 
-  const config = getErrorConfig();
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
-  // Handle retry action
   const handleRetry = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (onRetry) {
       onRetry();
-    } else {
-      // Default retry action - reload the app or go back
-      console.log('Default retry action');
     }
   };
 
-  // Handle contact support
-  const handleContactSupport = () => {
-    if (onContactSupport) {
-      onContactSupport();
-    } else {
-      Alert.alert(
-        'Contact Support',
-        'Choose how you\'d like to contact our support team',
-        [
-          { text: 'Call', onPress: () => console.log('Call support') },
-          { text: 'WhatsApp', onPress: () => console.log('WhatsApp support') },
-          { text: 'Email', onPress: () => console.log('Email support') },
-          { text: 'Cancel', style: 'cancel' },
-        ]
-      );
+  const handleGoBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (onGoBack) {
+      onGoBack();
     }
-  };
-
-  // Handle refresh app
-  const handleRefreshApp = () => {
-    Alert.alert(
-      'Refresh App',
-      'This will restart the app and may resolve the issue.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Refresh',
-          style: 'destructive',
-          onPress: () => {
-            // TODO: Implement app refresh logic
-            console.log('Refresh app');
-          },
-        },
-      ]
-    );
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        {/* Error Illustration */}
-        <View style={styles.illustrationContainer}>
-          <View style={styles.iconContainer}>
-            <Ionicons name={config.icon} size={64} color={config.iconColor} />
+        {/* Error Icon */}
+        <Animated.View
+          style={[
+            styles.iconContainer,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { scale: scaleAnim },
+                { translateY: slideAnim },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.iconBackground}>
+            <Ionicons name="warning" size={80} color={BrandColors.error} />
           </View>
-
-          {/* Error type specific illustration */}
-          {type === 'network' && (
-            <View style={styles.networkIllustration}>
-              <View style={styles.signalBars}>
-                <View style={styles.signalBar} />
-                <View style={[styles.signalBar, styles.signalBarMedium]} />
-                <View style={[styles.signalBar, styles.signalBarHigh]} />
-                <View style={[styles.signalBar, styles.signalBarFull]} />
-              </View>
-              <Text style={styles.illustrationText}>📶</Text>
-            </View>
-          )}
-
-          {type === 'server' && (
-            <View style={styles.serverIllustration}>
-              <View style={styles.server}>
-                <View style={styles.serverIndicator} />
-                <View style={styles.serverIndicator} />
-                <View style={styles.serverIndicator} />
-              </View>
-              <Text style={styles.illustrationText}>🔧</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Error Title */}
-        <Text style={styles.title}>{title || config.defaultTitle}</Text>
-
-        {/* Error Message */}
-        <Text style={styles.message}>
-          {message || config.defaultMessage}
-        </Text>
+        </Animated.View>
 
         {/* Error Code */}
         {errorCode && (
-          <View style={styles.errorCodeContainer}>
-            <Text style={styles.errorCodeLabel}>Error Code:</Text>
+          <Animated.View
+            style={[
+              styles.errorCodeContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
             <Text style={styles.errorCode}>{errorCode}</Text>
-          </View>
+          </Animated.View>
         )}
+
+        {/* Title and Message */}
+        <Animated.View
+          style={[
+            styles.textContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.message}>{message}</Text>
+        </Animated.View>
 
         {/* Action Buttons */}
-        <View style={styles.actionButtons}>
+        <Animated.View
+          style={[
+            styles.buttonContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
           {showRetry && (
-            <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
-              <Ionicons name="refresh" size={20} color="#FFFFFF" />
-              <Text style={styles.retryButtonText}>Try Again</Text>
-            </TouchableOpacity>
+            <Button
+              title="Try Again"
+              onPress={handleRetry}
+              variant="primary"
+              size="lg"
+              icon="refresh"
+              iconPosition="left"
+              style={styles.retryButton}
+            />
           )}
 
-          {showSupport && (
-            <TouchableOpacity style={styles.supportButton} onPress={handleContactSupport}>
-              <Ionicons name="help-circle-outline" size={20} color="#007AFF" />
-              <Text style={styles.supportButtonText}>Contact Support</Text>
-            </TouchableOpacity>
+          {showGoBack && (
+            <Button
+              title="Go Back"
+              onPress={handleGoBack}
+              variant="outline"
+              size="lg"
+              icon="arrow-back"
+              iconPosition="left"
+              style={styles.goBackButton}
+            />
           )}
-        </View>
+        </Animated.View>
 
-        {/* Additional Actions */}
-        <View style={styles.additionalActions}>
-          <TouchableOpacity style={styles.additionalAction} onPress={handleRefreshApp}>
-            <Ionicons name="reload" size={16} color="#666" />
-            <Text style={styles.additionalActionText}>Refresh App</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.additionalAction}>
-            <Ionicons name="arrow-back" size={16} color="#666" />
-            <Text style={styles.additionalActionText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Helpful Tips */}
-        {type === 'network' && (
-          <View style={styles.tipsContainer}>
-            <Text style={styles.tipsTitle}>💡 Troubleshooting Tips:</Text>
-            <Text style={styles.tipItem}>• Check if WiFi or mobile data is enabled</Text>
-            <Text style={styles.tipItem}>• Try moving to a different location</Text>
-            <Text style={styles.tipItem}>• Restart your router or mobile data</Text>
-            <Text style={styles.tipItem}>• Check if other apps are working</Text>
-          </View>
-        )}
-
-        {type === 'server' && (
-          <View style={styles.tipsContainer}>
-            <Text style={styles.tipsTitle}>💡 What you can do:</Text>
-            <Text style={styles.tipItem}>• Wait a few minutes and try again</Text>
-            <Text style={styles.tipItem}>• Check our status page for updates</Text>
-            <Text style={styles.tipItem}>• Contact support if the issue persists</Text>
-          </View>
-        )}
-
-        {type === 'permission' && (
-          <View style={styles.tipsContainer}>
-            <Text style={styles.tipsTitle}>💡 How to enable permissions:</Text>
-            <Text style={styles.tipItem}>• Go to Settings → Apps → MOVA</Text>
-            <Text style={styles.tipItem}>• Tap on Permissions</Text>
-            <Text style={styles.tipItem}>• Enable the required permissions</Text>
-            <Text style={styles.tipItem}>• Restart the app</Text>
-          </View>
-        )}
-
-        {/* Support Information */}
-        <View style={styles.supportInfo}>
-          <Text style={styles.supportInfoText}>
-            Need immediate help? Contact our support team:
+        {/* Help Text */}
+        <Animated.View
+          style={[
+            styles.helpContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <Text style={styles.helpText}>
+            If the problem persists, please contact our support team.
           </Text>
-          <View style={styles.supportContacts}>
-            <TouchableOpacity style={styles.contactButton}>
-              <Ionicons name="call" size={16} color="#34C759" />
-              <Text style={styles.contactText}>1800-XXX-XXXX</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.contactButton}>
-              <Ionicons name="logo-whatsapp" size={16} color="#25D366" />
-              <Text style={styles.contactText}>WhatsApp</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        </Animated.View>
       </View>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    backgroundColor: BrandColors.backgroundPrimary,
   },
   content: {
+    flex: 1,
     alignItems: 'center',
-    maxWidth: 400,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.xl,
   },
-  illustrationContainer: {
-    marginBottom: 32,
-    alignItems: 'center',
-  },
+
+  // Icon
   iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#FFF5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
-  // Network illustration
-  networkIllustration: {
-    alignItems: 'center',
-  },
-  signalBars: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 2,
-    marginBottom: 8,
-  },
-  signalBar: {
-    width: 4,
-    backgroundColor: '#FF3B30',
-    borderRadius: 2,
-  },
-  signalBarMedium: {
-    height: 12,
-  },
-  signalBarHigh: {
-    height: 16,
-  },
-  signalBarFull: {
-    height: 20,
-  },
-  // Server illustration
-  serverIllustration: {
-    alignItems: 'center',
-  },
-  server: {
-    width: 60,
-    height: 40,
-    backgroundColor: '#FF9500',
-    borderRadius: 4,
-    flexDirection: 'row',
+  iconBackground: {
+    width: 160,
+    height: 160,
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.error + '10',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: BrandColors.error + '30',
   },
-  serverIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FFFFFF',
-  },
-  illustrationText: {
-    fontSize: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  message: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 20,
-  },
+
+  // Error Code
   errorCodeContainer: {
-    backgroundColor: '#F8F9FA',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginBottom: 24,
-  },
-  errorCodeLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 2,
+    marginBottom: Spacing.lg,
   },
   errorCode: {
-    fontSize: 14,
-    color: '#000',
-    fontFamily: 'monospace',
-    fontWeight: 'bold',
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.error,
+    backgroundColor: BrandColors.error + '10',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: BrandColors.error + '30',
   },
-  actionButtons: {
-    gap: 12,
-    marginBottom: 24,
+
+  // Text
+  textContainer: {
+    alignItems: 'center',
+    marginBottom: Spacing.xl,
+  },
+  title: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['2xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
+  },
+  message: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
+    textAlign: 'center',
+    lineHeight: Typography.lineHeight.relaxed * Typography.fontSize.base,
+  },
+
+  // Buttons
+  buttonContainer: {
+    width: '100%',
+    marginBottom: Spacing.xl,
   },
   retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 8,
+    width: '100%',
+    marginBottom: Spacing.md,
   },
-  retryButtonText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
+  goBackButton: {
+    width: '100%',
   },
-  supportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F8FF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  supportButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  additionalActions: {
-    flexDirection: 'row',
-    gap: 24,
-    marginBottom: 24,
-  },
-  additionalAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  additionalActionText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  tipsContainer: {
-    alignSelf: 'stretch',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-  },
-  tipsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginBottom: 8,
-  },
-  tipItem: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-    lineHeight: 20,
-  },
-  supportInfo: {
-    alignSelf: 'stretch',
-    backgroundColor: '#F0F8FF',
-    borderRadius: 12,
-    padding: 16,
+
+  // Help
+  helpContainer: {
     alignItems: 'center',
   },
-  supportInfoText: {
-    fontSize: 14,
-    color: '#666',
+  helpText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textLight,
     textAlign: 'center',
-    marginBottom: 12,
-  },
-  supportContacts: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  contactButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-  },
-  contactText: {
-    fontSize: 14,
-    color: '#000',
-    fontWeight: '500',
+    lineHeight: Typography.lineHeight.relaxed * Typography.fontSize.sm,
   },
 });

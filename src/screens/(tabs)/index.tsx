@@ -1,465 +1,608 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import Constants from 'expo-constants';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    Alert,
+    Animated,
+    Dimensions,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
     View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedView } from '../../components/themed-view';
-import { VendorService } from '../../services/vendorService';
-import { Vendor } from '../../types';
-import { formatCurrency } from '../../utils/helpers';
+import { Card } from '../../components/ui/Card';
+import { BorderRadius, BrandColors, Shadows, Spacing, Typography } from '../../constants/brandTheme';
 
-/**
- * HomeScreen Component
- * Main dashboard screen for vendors showing overview of their business
- */
-export default function HomeScreen() {
-  const [vendor, setVendor] = useState<Vendor | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalBookings: 0,
-    activeBookings: 0,
-    totalRevenue: 0,
-    totalCars: 0,
-  });
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Development mode detection for Expo Go
+const isExpoGo = Constants.appOwnership === 'expo';
+
+interface StatCardProps {
+  title: string;
+  value: string;
+  change: string;
+  changeType: 'positive' | 'negative' | 'neutral';
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+}
+
+const StatCard: React.FC<StatCardProps> = ({ title, value, change, changeType, icon, color }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
   useEffect(() => {
-    loadDashboardData();
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
 
-  /**
-   * Load dashboard data including vendor profile and statistics
-   */
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-
-      // Load vendor profile
-      const vendorResponse = await VendorService.getCurrentVendor();
-      if (vendorResponse.success && vendorResponse.data) {
-        setVendor(vendorResponse.data);
-      }
-
-      // TODO: Load statistics from API
-      // For now, using sample data
-      setStats({
-        totalBookings: 24,
-        activeBookings: 8,
-        totalRevenue: 15750,
-        totalCars: 12,
-      });
-
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-      Alert.alert('Error', 'Failed to load dashboard data');
-    } finally {
-      setLoading(false);
+  const getChangeColor = () => {
+    switch (changeType) {
+      case 'positive': return BrandColors.accent;
+      case 'negative': return BrandColors.error;
+      default: return BrandColors.textSecondary;
     }
   };
 
-  /**
-   * Render welcome section with vendor info
-   */
-  const renderWelcomeSection = () => (
-    <View style={styles.welcomeSection}>
-      <View style={styles.welcomeHeader}>
-        <View style={styles.avatarContainer}>
-          <Ionicons name="person" size={32} color="#007AFF" />
-        </View>
-        <View style={styles.welcomeText}>
-          <Text style={styles.welcomeTitle}>
-            Welcome back, {vendor?.name || 'Vendor'}!
-          </Text>
-          <Text style={styles.welcomeSubtitle}>
-            {vendor?.companyName || 'Your Company'}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.verificationStatus}>
-        <Ionicons
-          name={vendor?.isVerified ? 'checkmark-circle' : 'time-outline'}
-          size={16}
-          color={vendor?.isVerified ? '#28A745' : '#FFA500'}
-        />
-        <Text style={[
-          styles.verificationText,
-          { color: vendor?.isVerified ? '#28A745' : '#FFA500' }
-        ]}>
-          {vendor?.isVerified ? 'Verified Account' : 'Pending Verification'}
-        </Text>
-      </View>
-    </View>
-  );
-
-  /**
-   * Render statistics cards
-   */
-  const renderStatsSection = () => (
-    <View style={styles.statsSection}>
-      <Text style={styles.sectionTitle}>Overview</Text>
-
-      <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
-          <View style={styles.statIconContainer}>
-            <Ionicons name="calendar" size={24} color="#007AFF" />
-          </View>
-          <Text style={styles.statNumber}>{stats.totalBookings}</Text>
-          <Text style={styles.statLabel}>Total Bookings</Text>
-        </View>
-
-        <View style={styles.statCard}>
-          <View style={styles.statIconContainer}>
-            <Ionicons name="car" size={24} color="#28A745" />
-          </View>
-          <Text style={styles.statNumber}>{stats.activeBookings}</Text>
-          <Text style={styles.statLabel}>Active Bookings</Text>
-        </View>
-
-        <View style={styles.statCard}>
-          <View style={styles.statIconContainer}>
-            <Ionicons name="cash" size={24} color="#FFA500" />
-          </View>
-          <Text style={styles.statNumber}>{formatCurrency(stats.totalRevenue)}</Text>
-          <Text style={styles.statLabel}>Total Revenue</Text>
-        </View>
-
-        <View style={styles.statCard}>
-          <View style={styles.statIconContainer}>
-            <Ionicons name="car-sport" size={24} color="#DC3545" />
-          </View>
-          <Text style={styles.statNumber}>{stats.totalCars}</Text>
-          <Text style={styles.statLabel}>Total Cars</Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  /**
-   * Render quick actions
-   */
-  const renderQuickActions = () => (
-    <View style={styles.quickActionsSection}>
-      <Text style={styles.sectionTitle}>Quick Actions</Text>
-
-      <View style={styles.quickActionsGrid}>
-        <TouchableOpacity style={styles.quickActionCard}>
-          <Ionicons name="add-circle" size={32} color="#007AFF" />
-          <Text style={styles.quickActionLabel}>Add Car</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.quickActionCard}>
-          <Ionicons name="list" size={32} color="#28A745" />
-          <Text style={styles.quickActionLabel}>View Bookings</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.quickActionCard}>
-          <Ionicons name="analytics" size={32} color="#FFA500" />
-          <Text style={styles.quickActionLabel}>Analytics</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.quickActionCard}>
-          <Ionicons name="settings" size={32} color="#6C757D" />
-          <Text style={styles.quickActionLabel}>Settings</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  /**
-   * Render recent activity
-   */
-  const renderRecentActivity = () => (
-    <View style={styles.recentActivitySection}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
-        <TouchableOpacity>
-          <Text style={styles.viewAllText}>View All</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.activityList}>
-        <View style={styles.activityItem}>
-          <View style={styles.activityIcon}>
-            <Ionicons name="checkmark-circle" size={20} color="#28A745" />
-          </View>
-          <View style={styles.activityContent}>
-            <Text style={styles.activityTitle}>Booking Confirmed</Text>
-            <Text style={styles.activitySubtitle}>
-              Car #1234 booked for 3 days
-            </Text>
-            <Text style={styles.activityTime}>2 hours ago</Text>
-          </View>
-        </View>
-
-        <View style={styles.activityItem}>
-          <View style={styles.activityIcon}>
-            <Ionicons name="add-circle" size={20} color="#007AFF" />
-          </View>
-          <View style={styles.activityContent}>
-            <Text style={styles.activityTitle}>New Car Added</Text>
-            <Text style={styles.activitySubtitle}>
-              Toyota Camry 2023 added to fleet
-            </Text>
-            <Text style={styles.activityTime}>1 day ago</Text>
-          </View>
-        </View>
-
-        <View style={styles.activityItem}>
-          <View style={styles.activityIcon}>
-            <Ionicons name="cash" size={20} color="#FFA500" />
-          </View>
-          <View style={styles.activityContent}>
-            <Text style={styles.activityTitle}>Payment Received</Text>
-            <Text style={styles.activitySubtitle}>
-              $450 payment for booking #123
-            </Text>
-            <Text style={styles.activityTime}>2 days ago</Text>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-
-  if (loading) {
-    return (
-      <ThemedView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading dashboard...</Text>
-        </View>
-      </ThemedView>
-    );
-  }
+  const getChangeIcon = () => {
+    switch (changeType) {
+      case 'positive': return 'trending-up';
+      case 'negative': return 'trending-down';
+      default: return 'remove';
+    }
+  };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Welcome Section */}
-        {renderWelcomeSection()}
+    <Animated.View
+      style={[
+        styles.statCard,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <Card variant="elevated" size="md" style={styles.statCardContent}>
+        <View style={styles.statHeader}>
+          <View style={[styles.statIcon, { backgroundColor: `${color}20` }]}>
+            <Ionicons name={icon} size={24} color={color} />
+          </View>
+          <View style={styles.statChange}>
+            <Ionicons
+              name={getChangeIcon()}
+              size={16}
+              color={getChangeColor()}
+            />
+            <Text style={[styles.statChangeText, { color: getChangeColor() }]}>
+              {change}
+            </Text>
+          </View>
+        </View>
 
-        {/* Statistics Section */}
-        {renderStatsSection()}
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statTitle}>{title}</Text>
+      </Card>
+    </Animated.View>
+  );
+};
+
+interface QuickActionProps {
+  title: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  onPress: () => void;
+}
+
+const QuickAction: React.FC<QuickActionProps> = ({ title, icon, color, onPress }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={styles.quickAction}
+        activeOpacity={0.8}
+      >
+        <LinearGradient
+          colors={[color, `${color}CC`]}
+          style={styles.quickActionGradient}
+        >
+          <Ionicons name={icon} size={28} color={BrandColors.secondary} />
+        </LinearGradient>
+        <Text style={styles.quickActionText}>{title}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+export default function DashboardScreen({ navigation }: any) {
+  const [refreshing, setRefreshing] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    setRefreshing(false);
+  };
+
+  const handleQuickAction = (action: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    switch (action) {
+      case 'add-vehicle':
+        navigation.navigate('BasicDetailsScreen');
+        break;
+      case 'view-bookings':
+        navigation.navigate('MyBookingsScreen');
+        break;
+      case 'analytics':
+        navigation.navigate('AnalyticsDashboardScreen');
+        break;
+      case 'wallet':
+        navigation.navigate('WalletScreen');
+        break;
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={BrandColors.primary}
+            colors={[BrandColors.primary]}
+          />
+        }
+      >
+        {/* Header */}
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.headerContent}>
+            <Text style={styles.greeting}>Good morning!</Text>
+            <Text style={styles.userName}>Welcome back, Vendor</Text>
+            {/* Development mode indicator */}
+            {isExpoGo && (
+              <View style={styles.devModeIndicator}>
+                <Text style={styles.devModeText}>🚀 Development Mode</Text>
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity style={styles.profileButton}>
+            <LinearGradient
+              colors={[BrandColors.accent, BrandColors.accentLight]}
+              style={styles.profileGradient}
+            >
+              <Ionicons name="person" size={24} color={BrandColors.secondary} />
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Stats Grid */}
+        <Animated.View
+          style={[
+            styles.statsContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <StatCard
+            title="Total Revenue"
+            value="₹45,230"
+            change="+12.5%"
+            changeType="positive"
+            icon="trending-up"
+            color={BrandColors.accent}
+          />
+
+          <StatCard
+            title="Active Bookings"
+            value="23"
+            change="+3"
+            changeType="positive"
+            icon="calendar"
+            color={BrandColors.dot}
+          />
+
+          <StatCard
+            title="Fleet Size"
+            value="12"
+            change="+1"
+            changeType="positive"
+            icon="car"
+            color={BrandColors.primary}
+          />
+
+          <StatCard
+            title="Rating"
+            value="4.8"
+            change="+0.2"
+            changeType="positive"
+            icon="star"
+            color={BrandColors.warning}
+          />
+        </Animated.View>
 
         {/* Quick Actions */}
-        {renderQuickActions()}
+        <Animated.View
+          style={[
+            styles.quickActionsContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+
+          <View style={styles.quickActionsGrid}>
+            <QuickAction
+              title="Add Vehicle"
+              icon="add-circle"
+              color={BrandColors.accent}
+              onPress={() => handleQuickAction('add-vehicle')}
+            />
+
+            <QuickAction
+              title="View Bookings"
+              icon="calendar"
+              color={BrandColors.dot}
+              onPress={() => handleQuickAction('view-bookings')}
+            />
+
+            <QuickAction
+              title="Analytics"
+              icon="analytics"
+              color={BrandColors.primary}
+              onPress={() => handleQuickAction('analytics')}
+            />
+
+            <QuickAction
+              title="Wallet"
+              icon="wallet"
+              color={BrandColors.warning}
+              onPress={() => handleQuickAction('wallet')}
+            />
+          </View>
+        </Animated.View>
 
         {/* Recent Activity */}
-        {renderRecentActivity()}
+        <Animated.View
+          style={[
+            styles.recentActivityContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <TouchableOpacity>
+              <Text style={styles.viewAllText}>View All</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Card variant="elevated" size="lg">
+            <View style={styles.activityItem}>
+              <View style={[styles.activityIcon, { backgroundColor: `${BrandColors.accent}20` }]}>
+                <Ionicons name="checkmark-circle" size={20} color={BrandColors.accent} />
+              </View>
+              <View style={styles.activityContent}>
+                <Text style={styles.activityTitle}>Booking Completed</Text>
+                <Text style={styles.activitySubtitle}>Toyota Camry - ₹2,500</Text>
+                <Text style={styles.activityTime}>2 hours ago</Text>
+              </View>
+            </View>
+
+            <View style={styles.activityDivider} />
+
+            <View style={styles.activityItem}>
+              <View style={[styles.activityIcon, { backgroundColor: `${BrandColors.dot}20` }]}>
+                <Ionicons name="add-circle" size={20} color={BrandColors.dot} />
+              </View>
+              <View style={styles.activityContent}>
+                <Text style={styles.activityTitle}>New Vehicle Added</Text>
+                <Text style={styles.activitySubtitle}>Honda City - Ready for booking</Text>
+                <Text style={styles.activityTime}>5 hours ago</Text>
+              </View>
+            </View>
+
+            <View style={styles.activityDivider} />
+
+            <View style={styles.activityItem}>
+              <View style={[styles.activityIcon, { backgroundColor: `${BrandColors.warning}20` }]}>
+                <Ionicons name="cash" size={20} color={BrandColors.warning} />
+              </View>
+              <View style={styles.activityContent}>
+                <Text style={styles.activityTitle}>Payment Received</Text>
+                <Text style={styles.activitySubtitle}>₹1,800 - Weekly earnings</Text>
+                <Text style={styles.activityTime}>1 day ago</Text>
+              </View>
+            </View>
+          </Card>
+        </Animated.View>
+
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
       </ScrollView>
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#666',
-    fontFamily: 'OpenSans-Regular',
+    backgroundColor: BrandColors.backgroundPrimary,
   },
   scrollView: {
     flex: 1,
   },
-  welcomeSection: {
-    backgroundColor: 'white',
-    margin: 16,
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  welcomeHeader: {
+
+  // Header
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
   },
-  avatarContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  welcomeText: {
+  headerContent: {
     flex: 1,
   },
-  welcomeTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    fontFamily: 'Montserrat-Bold',
+  greeting: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
+    marginBottom: Spacing.xs,
   },
-  welcomeSubtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginTop: 4,
-    fontFamily: 'OpenSans-Regular',
+  userName: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['2xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
   },
-  verificationStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  verificationText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginLeft: 4,
-    fontFamily: 'Montserrat-SemiBold',
-  },
-  statsSection: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-    fontFamily: 'Montserrat-Bold',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  statCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    width: '48%',
-    marginBottom: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  statIconContainer: {
+  profileButton: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: '#f8f9fa',
-    justifyContent: 'center',
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+  },
+  profileGradient: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'center',
   },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    fontFamily: 'Montserrat-Bold',
+  devModeIndicator: {
+    backgroundColor: BrandColors.accent,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.xs,
+    alignSelf: 'flex-start',
   },
-  statLabel: {
-    fontSize: 12,
-    color: '#666',
+  devModeText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.medium,
+    color: BrandColors.secondary,
+  },
+
+  // Stats
+  statsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  statCard: {
+    width: '48%',
+    marginBottom: Spacing.md,
+    marginRight: '2%',
+  },
+  statCardContent: {
+    alignItems: 'center',
+  },
+  statHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: Spacing.sm,
+  },
+  statIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: BorderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statChange: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statChangeText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.medium,
+    marginLeft: Spacing.xs,
+  },
+  statValue: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['2xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
+  },
+  statTitle: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
     textAlign: 'center',
-    marginTop: 4,
-    fontFamily: 'OpenSans-Regular',
   },
-  quickActionsSection: {
-    marginHorizontal: 16,
-    marginBottom: 16,
+
+  // Quick Actions
+  quickActionsContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  sectionTitle: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.lg,
   },
   quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
-  quickActionCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
+  quickAction: {
     width: '48%',
-    marginBottom: 12,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: Spacing.lg,
   },
-  quickActionLabel: {
-    fontSize: 14,
-    color: '#333',
-    marginTop: 8,
+  quickActionGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: BorderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+    ...Shadows.md,
+  },
+  quickActionText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    color: BrandColors.textPrimary,
     textAlign: 'center',
-    fontFamily: 'OpenSans-Medium',
   },
-  recentActivitySection: {
-    backgroundColor: 'white',
-    margin: 16,
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+
+  // Recent Activity
+  recentActivityContainer: {
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
   sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'space-between',
+    marginBottom: Spacing.lg,
   },
   viewAllText: {
-    fontSize: 14,
-    color: '#007AFF',
-    fontFamily: 'OpenSans-Medium',
-  },
-  activityList: {
-    gap: 16,
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.primary,
   },
   activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: Spacing.md,
   },
   activityIcon: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f8f9fa',
-    justifyContent: 'center',
+    borderRadius: BorderRadius.full,
     alignItems: 'center',
-    marginRight: 12,
+    justifyContent: 'center',
+    marginRight: Spacing.md,
   },
   activityContent: {
     flex: 1,
   },
   activityTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    fontFamily: 'Montserrat-SemiBold',
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
   },
   activitySubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 2,
-    fontFamily: 'OpenSans-Regular',
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+    marginBottom: Spacing.xs,
   },
   activityTime: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 4,
-    fontFamily: 'OpenSans-Regular',
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.xs,
+    color: BrandColors.textLight,
+  },
+  activityDivider: {
+    height: 1,
+    backgroundColor: BrandColors.borderLight,
+    marginVertical: Spacing.sm,
+  },
+
+  // Bottom
+  bottomSpacing: {
+    height: Spacing.xl,
   },
 });

@@ -1,131 +1,137 @@
-import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-/**
- * Phone Verification Screen Component
- * Allows users to enter their phone number for registration/login
- * Validates phone number format and sends OTP
- */
+import { BorderRadius, BrandColors, Spacing, Typography } from '../../../constants/brandTheme';
+
 export default function PhoneVerificationScreen({ navigation }: any) {
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [countryCode, setCountryCode] = useState('+971');
+  const [countryCode, setCountryCode] = useState('+91');
   const [isLoading, setIsLoading] = useState(false);
+  const [isValid, setIsValid] = useState(false);
 
-  const validatePhoneNumber = (phone: string) => {
-    // Basic phone number validation (UAE format)
-    const phoneRegex = /^[0-9]{9}$/;
-    return phoneRegex.test(phone.replace(/\s/g, ''));
-  };
+  useEffect(() => {
+    // Validate phone number
+    const phoneRegex = /^[6-9]\d{9}$/;
+    setIsValid(phoneRegex.test(phoneNumber) && phoneNumber.length === 10);
+  }, [phoneNumber]);
 
-  const handleSendOTP = async () => {
-    if (!phoneNumber.trim()) {
-      Alert.alert('Error', 'Please enter your phone number');
-      return;
-    }
-
-    if (!validatePhoneNumber(phoneNumber)) {
-      Alert.alert('Error', 'Please enter a valid phone number');
+  const handleContinue = async () => {
+    if (!isValid) {
+      Alert.alert('Invalid Phone Number', 'Please enter a valid 10-digit phone number');
       return;
     }
 
     setIsLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
     try {
-      const fullPhoneNumber = `${countryCode}${phoneNumber.replace(/\s/g, '')}`;
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // TODO: Implement actual OTP sending
-      // await AuthService.sendOTP(fullPhoneNumber);
-
-      // For now, simulate API call
-      setTimeout(() => {
-        setIsLoading(false);
-        navigation.navigate('OTPVerificationScreen', {
-          phoneNumber: fullPhoneNumber,
-          isRegistration: true
-        });
-      }, 2000);
-
+      // Navigate to OTP verification
+      navigation.navigate('OTPVerificationScreen', {
+        phoneNumber: `${countryCode}${phoneNumber}`,
+      });
     } catch (error) {
-      setIsLoading(false);
       Alert.alert('Error', 'Failed to send OTP. Please try again.');
-      console.error('Send OTP error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleLogin = () => {
-    navigation.navigate('OTPVerificationScreen', {
-      phoneNumber: `${countryCode}${phoneNumber.replace(/\s/g, '')}`,
-      isRegistration: false
-    });
+  const handleBack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.goBack();
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <KeyboardAvoidingView
-        style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <View style={styles.content}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>Enter Your Phone Number</Text>
+            <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={BrandColors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Title */}
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Enter Phone Number</Text>
             <Text style={styles.subtitle}>
-              We'll send you a verification code to confirm your number
+              We'll send you a verification code
             </Text>
           </View>
 
           {/* Phone Input */}
-          <View style={styles.inputContainer}>
+          <View style={styles.inputSection}>
+            <Text style={styles.label}>Phone Number</Text>
+
             <View style={styles.phoneInputRow}>
-              <View style={styles.countryCodeContainer}>
-                <TextInput
-                  style={styles.countryCodeInput}
-                  value={countryCode}
-                  onChangeText={setCountryCode}
-                  keyboardType="phone-pad"
-                  maxLength={4}
-                />
+              <View style={styles.countryCodeBox}>
+                <Text style={styles.countryCodeText}>{countryCode}</Text>
               </View>
 
               <TextInput
                 style={styles.phoneInput}
+                placeholder="9876543210"
+                placeholderTextColor={BrandColors.textLight}
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
-                placeholder="50 123 4567"
                 keyboardType="phone-pad"
-                maxLength={12}
+                maxLength={10}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleContinue}
               />
             </View>
 
-            <Text style={styles.inputLabel}>
-              Enter your phone number without the country code
+            <Text style={styles.helperText}>
+              Enter your 10-digit mobile number
             </Text>
           </View>
 
-          {/* Action Buttons */}
+          {/* Continue Button */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.sendOTPButton, isLoading && styles.disabledButton]}
-              onPress={handleSendOTP}
-              disabled={isLoading}
+              style={[
+                styles.continueButton,
+                (!isValid || isLoading) && styles.continueButtonDisabled
+              ]}
+              onPress={handleContinue}
+              disabled={!isValid || isLoading}
             >
-              <Text style={styles.sendOTPButtonText}>
-                {isLoading ? 'Sending...' : 'Send OTP'}
+              <Text style={styles.continueButtonText}>
+                {isLoading ? 'Sending...' : 'Continue'}
               </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-              <Text style={styles.loginButtonText}>Already have an account? Login</Text>
+              {!isLoading && (
+                <Ionicons name="arrow-forward" size={20} color={BrandColors.secondary} />
+              )}
             </TouchableOpacity>
           </View>
-
-          {/* Terms */}
-          <View style={styles.termsContainer}>
-            <Text style={styles.termsText}>
-              By continuing, you agree to our Terms of Service and Privacy Policy
-            </Text>
-          </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -134,109 +140,129 @@ export default function PhoneVerificationScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: BrandColors.backgroundPrimary,
   },
   keyboardView: {
     flex: 1,
   },
-  content: {
+  scrollView: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 40,
   },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: Spacing.lg,
+  },
+
+  // Header
   header: {
-    marginBottom: 40,
+    paddingVertical: Spacing.lg,
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.md,
+    backgroundColor: BrandColors.gray50,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Title
+  titleContainer: {
+    marginTop: Spacing['2xl'],
+    marginBottom: Spacing['3xl'],
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
-    marginBottom: 12,
-    textAlign: 'center',
-    fontFamily: 'Montserrat-Bold',
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['4xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    textAlign: 'center',
-    lineHeight: 24,
-    fontFamily: 'OpenSans-Regular',
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
+    lineHeight: Typography.lineHeight.relaxed * Typography.fontSize.base,
   },
-  inputContainer: {
-    marginBottom: 40,
+
+  // Input Section
+  inputSection: {
+    marginBottom: Spacing['3xl'],
+  },
+  label: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.base,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.md,
   },
   phoneInputRow: {
     flexDirection: 'row',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
   },
-  countryCodeContainer: {
-    marginRight: 12,
+  countryCodeBox: {
+    height: 56,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: BrandColors.gray50,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: BrandColors.borderLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
   },
-  countryCodeInput: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    fontSize: 16,
-    backgroundColor: '#F8F9FA',
-    width: 80,
-    textAlign: 'center',
-    fontFamily: 'OpenSans-Regular',
+  countryCodeText: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.textPrimary,
   },
   phoneInput: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    fontSize: 16,
-    backgroundColor: '#F8F9FA',
-    fontFamily: 'OpenSans-Regular',
+    height: 56,
+    backgroundColor: BrandColors.backgroundPrimary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
+    borderColor: BrandColors.borderLight,
+    paddingHorizontal: Spacing.lg,
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.medium,
+    color: BrandColors.textPrimary,
   },
-  inputLabel: {
-    fontSize: 14,
-    color: '#666666',
-    fontFamily: 'OpenSans-Regular',
+  helperText: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+    marginTop: Spacing.sm,
   },
+
+  // Button Container
   buttonContainer: {
-    marginBottom: 40,
+    marginTop: Spacing.xl,
+    paddingBottom: Spacing.xl,
   },
-  sendOTPButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 16,
-    borderRadius: 12,
+
+  // Continue Button
+  continueButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    backgroundColor: BrandColors.primary,
+    height: 56,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.xl,
   },
-  disabledButton: {
-    backgroundColor: '#CCCCCC',
+  continueButtonDisabled: {
+    backgroundColor: BrandColors.gray300,
+    opacity: 0.6,
   },
-  sendOTPButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-    fontFamily: 'Montserrat-SemiBold',
-  },
-  loginButton: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  loginButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontFamily: 'OpenSans-Regular',
-  },
-  termsContainer: {
-    alignItems: 'center',
-  },
-  termsText: {
-    fontSize: 12,
-    color: '#999999',
-    textAlign: 'center',
-    lineHeight: 18,
-    fontFamily: 'OpenSans-Regular',
+  continueButtonText: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.secondary,
+    marginRight: Spacing.sm,
   },
 });

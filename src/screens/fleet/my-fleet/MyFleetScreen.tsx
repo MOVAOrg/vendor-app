@@ -1,298 +1,393 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
-import { FlatList, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+    Animated,
+    Dimensions,
+    Image,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { Button } from '../../../components/ui/Button';
+import { Card } from '../../../components/ui/Card';
+import { BorderRadius, BrandColors, Spacing, Typography } from '../../../constants/brandTheme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface Vehicle {
   id: string;
-  make: string;
+  name: string;
   model: string;
   year: number;
-  licensePlate: string;
-  status: 'available' | 'rented' | 'maintenance' | 'unavailable';
-  dailyRate: number;
+  price: number;
+  status: 'available' | 'booked' | 'maintenance';
+  rating: number;
   image: string;
   location: string;
-  mileage: number;
-  fuelType: string;
-  transmission: string;
 }
 
-/**
- * My Fleet Screen Component
- * Displays vendor's vehicle fleet with management options
- * Shows vehicle status, availability, and quick actions
- */
-export default function MyFleetScreen({ navigation }: any) {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'available' | 'rented' | 'maintenance'>('all');
+const mockVehicles: Vehicle[] = [
+  {
+    id: '1',
+    name: 'Toyota Camry',
+    model: 'Hybrid LE',
+    year: 2023,
+    price: 2500,
+    status: 'available',
+    rating: 4.8,
+    image: 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=400',
+    location: 'Mumbai, Maharashtra',
+  },
+  {
+    id: '2',
+    name: 'Honda City',
+    model: 'VX CVT',
+    year: 2022,
+    price: 1800,
+    status: 'booked',
+    rating: 4.6,
+    image: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=400',
+    location: 'Delhi, NCR',
+  },
+  {
+    id: '3',
+    name: 'Hyundai Creta',
+    model: 'SX Executive',
+    year: 2023,
+    price: 2200,
+    status: 'maintenance',
+    rating: 4.7,
+    image: 'https://images.unsplash.com/photo-1549317336-206569e8475c?w=400',
+    location: 'Bangalore, Karnataka',
+  },
+];
+
+interface VehicleCardProps {
+  vehicle: Vehicle;
+  onPress: () => void;
+  index: number;
+}
+
+const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onPress, index }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
 
   useEffect(() => {
-    loadVehicles();
-  }, []);
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        delay: index * 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        delay: index * 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [index]);
 
-  const loadVehicles = async () => {
-    try {
-      // TODO: Fetch actual vehicles from backend
-      // const data = await VehicleService.getVendorVehicles();
-
-      // Mock data for now
-      const mockVehicles: Vehicle[] = [
-        {
-          id: '1',
-          make: 'Toyota',
-          model: 'Camry',
-          year: 2022,
-          licensePlate: 'ABC-123',
-          status: 'available',
-          dailyRate: 150,
-          image: 'https://example.com/camry.jpg',
-          location: 'Dubai Marina',
-          mileage: 15000,
-          fuelType: 'Petrol',
-          transmission: 'Automatic',
-        },
-        {
-          id: '2',
-          make: 'Honda',
-          model: 'Civic',
-          year: 2021,
-          licensePlate: 'DEF-456',
-          status: 'rented',
-          dailyRate: 120,
-          image: 'https://example.com/civic.jpg',
-          location: 'JBR',
-          mileage: 25000,
-          fuelType: 'Petrol',
-          transmission: 'Manual',
-        },
-        {
-          id: '3',
-          make: 'Nissan',
-          model: 'Altima',
-          year: 2023,
-          licensePlate: 'GHI-789',
-          status: 'maintenance',
-          dailyRate: 180,
-          image: 'https://example.com/altima.jpg',
-          location: 'Downtown',
-          mileage: 8000,
-          fuelType: 'Petrol',
-          transmission: 'Automatic',
-        },
-      ];
-
-      setVehicles(mockVehicles);
-    } catch (error) {
-      console.error('Error loading vehicles:', error);
+  const getStatusColor = () => {
+    switch (vehicle.status) {
+      case 'available': return BrandColors.accent;
+      case 'booked': return BrandColors.warning;
+      case 'maintenance': return BrandColors.error;
+      default: return BrandColors.textSecondary;
     }
   };
+
+  const getStatusText = () => {
+    switch (vehicle.status) {
+      case 'available': return 'Available';
+      case 'booked': return 'Booked';
+      case 'maintenance': return 'Maintenance';
+      default: return 'Unknown';
+    }
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.vehicleCard,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
+    >
+      <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+        <Card variant="elevated" size="lg" style={styles.vehicleCardContent}>
+          <View style={styles.vehicleImageContainer}>
+            <Image source={{ uri: vehicle.image }} style={styles.vehicleImage} />
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}>
+              <Text style={styles.statusText}>{getStatusText()}</Text>
+            </View>
+            <View style={styles.ratingContainer}>
+              <Ionicons name="star" size={16} color={BrandColors.warning} />
+              <Text style={styles.ratingText}>{vehicle.rating}</Text>
+            </View>
+          </View>
+
+          <View style={styles.vehicleInfo}>
+            <Text style={styles.vehicleName}>{vehicle.name}</Text>
+            <Text style={styles.vehicleModel}>{vehicle.model} • {vehicle.year}</Text>
+            <Text style={styles.vehicleLocation}>
+              <Ionicons name="location" size={14} color={BrandColors.textSecondary} />
+              {' '}{vehicle.location}
+            </Text>
+
+            <View style={styles.vehicleFooter}>
+              <Text style={styles.vehiclePrice}>₹{vehicle.price}/day</Text>
+              <TouchableOpacity style={styles.moreButton}>
+                <Ionicons name="ellipsis-horizontal" size={20} color={BrandColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Card>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+export default function MyFleetScreen({ navigation }: any) {
+  const [vehicles, setVehicles] = useState<Vehicle[]>(mockVehicles);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'available' | 'booked' | 'maintenance'>('all');
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadVehicles();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 2000));
     setRefreshing(false);
   };
 
-  const filteredVehicles = vehicles.filter(vehicle => {
-    if (filter === 'all') return true;
-    return vehicle.status === filter;
-  });
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'available':
-        return '#34C759';
-      case 'rented':
-        return '#007AFF';
-      case 'maintenance':
-        return '#FF9500';
-      case 'unavailable':
-        return '#FF3B30';
-      default:
-        return '#666666';
-    }
+  const handleAddVehicle = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate('BasicDetailsScreen');
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'available':
-        return 'checkmark-circle';
-      case 'rented':
-        return 'time';
-      case 'maintenance':
-        return 'construct';
-      case 'unavailable':
-        return 'close-circle';
-      default:
-        return 'help-circle';
-    }
+  const handleVehiclePress = (vehicle: Vehicle) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.navigate('VehicleDetailsScreen', { vehicle });
   };
 
-  const renderVehicleItem = ({ item }: { item: Vehicle }) => (
-    <TouchableOpacity
-      style={styles.vehicleCard}
-      onPress={() => navigation.navigate('VehicleDetailsScreen', { vehicleId: item.id })}
-    >
-      <View style={styles.vehicleImageContainer}>
-        <Image
-          source={{ uri: item.image }}
-          style={styles.vehicleImage}
-          resizeMode="cover"
-        />
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Ionicons name={getStatusIcon(item.status) as any} size={12} color="#FFFFFF" />
-          <Text style={styles.statusText}>{item.status.toUpperCase()}</Text>
-        </View>
-      </View>
+  const handleFilterPress = (filter: typeof selectedFilter) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedFilter(filter);
+  };
 
-      <View style={styles.vehicleInfo}>
-        <View style={styles.vehicleHeader}>
-          <Text style={styles.vehicleTitle}>{item.year} {item.make} {item.model}</Text>
-          <Text style={styles.dailyRate}>AED {item.dailyRate}/day</Text>
-        </View>
-
-        <View style={styles.vehicleDetails}>
-          <View style={styles.detailRow}>
-            <Ionicons name="location-outline" size={16} color="#666666" />
-            <Text style={styles.detailText}>{item.location}</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Ionicons name="speedometer-outline" size={16} color="#666666" />
-            <Text style={styles.detailText}>{item.mileage.toLocaleString()} km</Text>
-          </View>
-
-          <View style={styles.detailRow}>
-            <Ionicons name="car-outline" size={16} color="#666666" />
-            <Text style={styles.detailText}>{item.licensePlate}</Text>
-          </View>
-        </View>
-
-        <View style={styles.vehicleActions}>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('EditVehicleScreen', { vehicleId: item.id })}
-          >
-            <Ionicons name="create-outline" size={16} color="#007AFF" />
-            <Text style={styles.actionButtonText}>Edit</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('MaintenanceLogScreen', { vehicleId: item.id })}
-          >
-            <Ionicons name="construct-outline" size={16} color="#FF9500" />
-            <Text style={styles.actionButtonText}>Maintenance</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => handleToggleAvailability(item)}
-          >
-            <Ionicons
-              name={item.status === 'available' ? 'pause-circle-outline' : 'play-circle-outline'}
-              size={16}
-              color={item.status === 'available' ? '#FF9500' : '#34C759'}
-            />
-            <Text style={styles.actionButtonText}>
-              {item.status === 'available' ? 'Pause' : 'Activate'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </TouchableOpacity>
+  const filteredVehicles = vehicles.filter(vehicle =>
+    selectedFilter === 'all' || vehicle.status === selectedFilter
   );
 
-  const handleToggleAvailability = async (vehicle: Vehicle) => {
-    try {
-      // TODO: Implement toggle availability API call
-      // await VehicleService.toggleAvailability(vehicle.id);
-      console.log('Toggle availability for vehicle:', vehicle.id);
-    } catch (error) {
-      console.error('Error toggling availability:', error);
-    }
+  const getFilterCount = (status: typeof selectedFilter) => {
+    if (status === 'all') return vehicles.length;
+    return vehicles.filter(v => v.status === status).length;
   };
-
-  const filterButtons = [
-    { key: 'all', label: 'All', count: vehicles.length },
-    { key: 'available', label: 'Available', count: vehicles.filter(v => v.status === 'available').length },
-    { key: 'rented', label: 'Rented', count: vehicles.filter(v => v.status === 'rented').length },
-    { key: 'maintenance', label: 'Maintenance', count: vehicles.filter(v => v.status === 'maintenance').length },
-  ];
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>My Fleet</Text>
-          <Text style={styles.subtitle}>{vehicles.length} vehicles in your fleet</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('AddVehicleScreen')}
-        >
-          <Ionicons name="add" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Filter Buttons */}
-      <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {filterButtons.map((button) => (
-            <TouchableOpacity
-              key={button.key}
-              style={[
-                styles.filterButton,
-                filter === button.key && styles.filterButtonActive,
-              ]}
-              onPress={() => setFilter(button.key as any)}
-            >
-              <Text
-                style={[
-                  styles.filterButtonText,
-                  filter === button.key && styles.filterButtonTextActive,
-                ]}
-              >
-                {button.label} ({button.count})
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Vehicles List */}
-      <FlatList
-        data={filteredVehicles}
-        renderItem={renderVehicleItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={BrandColors.primary}
+            colors={[BrandColors.primary]}
+          />
         }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="car-outline" size={64} color="#CCCCCC" />
-            <Text style={styles.emptyTitle}>No vehicles found</Text>
-            <Text style={styles.emptySubtitle}>
-              {filter === 'all'
-                ? 'Add your first vehicle to get started'
-                : `No vehicles with status: ${filter}`
-              }
+      >
+        {/* Header */}
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <View style={styles.headerContent}>
+            <Text style={styles.title}>My Fleet</Text>
+            <Text style={styles.subtitle}>
+              Manage your {vehicles.length} vehicles
             </Text>
-            {filter === 'all' && (
-              <TouchableOpacity
-                style={styles.emptyButton}
-                onPress={() => navigation.navigate('AddVehicleScreen')}
-              >
-                <Text style={styles.emptyButtonText}>Add Vehicle</Text>
-              </TouchableOpacity>
-            )}
           </View>
-        }
-      />
+
+          <TouchableOpacity style={styles.addButton} onPress={handleAddVehicle}>
+            <LinearGradient
+              colors={[BrandColors.accent, BrandColors.accentLight]}
+              style={styles.addButtonGradient}
+            >
+              <Ionicons name="add" size={24} color={BrandColors.secondary} />
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Stats Cards */}
+        <Animated.View
+          style={[
+            styles.statsContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <Card variant="gradient" size="md" style={styles.statCard}>
+            <View style={styles.statContent}>
+              <Ionicons name="car" size={24} color={BrandColors.secondary} />
+              <Text style={styles.statValue}>{vehicles.length}</Text>
+              <Text style={styles.statLabel}>Total Vehicles</Text>
+            </View>
+          </Card>
+
+          <Card variant="elevated" size="md" style={styles.statCard}>
+            <View style={styles.statContent}>
+              <Ionicons name="checkmark-circle" size={24} color={BrandColors.accent} />
+              <Text style={styles.statValue}>
+                {vehicles.filter(v => v.status === 'available').length}
+              </Text>
+              <Text style={styles.statLabel}>Available</Text>
+            </View>
+          </Card>
+
+          <Card variant="elevated" size="md" style={styles.statCard}>
+            <View style={styles.statContent}>
+              <Ionicons name="calendar" size={24} color={BrandColors.dot} />
+              <Text style={styles.statValue}>
+                {vehicles.filter(v => v.status === 'booked').length}
+              </Text>
+              <Text style={styles.statLabel}>Booked</Text>
+            </View>
+          </Card>
+        </Animated.View>
+
+        {/* Filter Tabs */}
+        <Animated.View
+          style={[
+            styles.filterContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.filterTabs}>
+              {(['all', 'available', 'booked', 'maintenance'] as const).map((filter) => (
+                <TouchableOpacity
+                  key={filter}
+                  style={[
+                    styles.filterTab,
+                    selectedFilter === filter && styles.filterTabActive,
+                  ]}
+                  onPress={() => handleFilterPress(filter)}
+                >
+                  <Text
+                    style={[
+                      styles.filterTabText,
+                      selectedFilter === filter && styles.filterTabTextActive,
+                    ]}
+                  >
+                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  </Text>
+                  <View style={[
+                    styles.filterBadge,
+                    selectedFilter === filter && styles.filterBadgeActive,
+                  ]}>
+                    <Text style={[
+                      styles.filterBadgeText,
+                      selectedFilter === filter && styles.filterBadgeTextActive,
+                    ]}>
+                      {getFilterCount(filter)}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        </Animated.View>
+
+        {/* Vehicle List */}
+        <Animated.View
+          style={[
+            styles.vehiclesContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {filteredVehicles.length === 0 ? (
+            <Card variant="elevated" size="lg" style={styles.emptyCard}>
+              <View style={styles.emptyContent}>
+                <Ionicons name="car-outline" size={64} color={BrandColors.textLight} />
+                <Text style={styles.emptyTitle}>No vehicles found</Text>
+                <Text style={styles.emptySubtitle}>
+                  {selectedFilter === 'all'
+                    ? 'Add your first vehicle to get started'
+                    : `No vehicles with ${selectedFilter} status`
+                  }
+                </Text>
+                {selectedFilter === 'all' && (
+                  <Button
+                    title="Add Vehicle"
+                    onPress={handleAddVehicle}
+                    variant="primary"
+                    size="md"
+                    icon="add"
+                    style={styles.emptyButton}
+                  />
+                )}
+              </View>
+            </Card>
+          ) : (
+            filteredVehicles.map((vehicle, index) => (
+              <VehicleCard
+                key={vehicle.id}
+                vehicle={vehicle}
+                onPress={() => handleVehiclePress(vehicle)}
+                index={index}
+              />
+            ))
+          )}
+        </Animated.View>
+
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -300,74 +395,137 @@ export default function MyFleetScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: BrandColors.backgroundPrimary,
   },
+  scrollView: {
+    flex: 1,
+  },
+
+  // Header
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+  },
+  headerContent: {
+    flex: 1,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
-    fontFamily: 'Montserrat-Bold',
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['3xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    fontFamily: 'OpenSans-Regular',
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
   },
   addButton: {
     width: 48,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: '#007AFF',
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+  },
+  addButtonGradient: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  // Stats
+  statsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  statCard: {
+    flex: 1,
+    marginHorizontal: Spacing.xs,
+  },
+  statContent: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize['2xl'],
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  statLabel: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+    textAlign: 'center',
+  },
+
+  // Filters
   filterContainer: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
   },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginHorizontal: 8,
-    borderRadius: 20,
-    backgroundColor: '#F8F9FA',
+  filterTabs: {
+    flexDirection: 'row',
   },
-  filterButtonActive: {
-    backgroundColor: '#007AFF',
+  filterTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    backgroundColor: BrandColors.gray50,
+    marginRight: Spacing.sm,
   },
-  filterButtonText: {
-    fontSize: 14,
-    color: '#666666',
-    fontFamily: 'OpenSans-Regular',
+  filterTabActive: {
+    backgroundColor: BrandColors.primary,
   },
-  filterButtonTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontFamily: 'OpenSans-SemiBold',
+  filterTabText: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.medium,
+    color: BrandColors.textSecondary,
+    marginRight: Spacing.xs,
   },
-  listContainer: {
-    padding: 16,
+  filterTabTextActive: {
+    color: BrandColors.secondary,
+  },
+  filterBadge: {
+    backgroundColor: BrandColors.secondary,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: 2,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  filterBadgeActive: {
+    backgroundColor: BrandColors.accent,
+  },
+  filterBadgeText: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.primary,
+  },
+  filterBadgeTextActive: {
+    color: BrandColors.secondary,
+  },
+
+  // Vehicles
+  vehiclesContainer: {
+    paddingHorizontal: Spacing.lg,
   },
   vehicleCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
+  },
+  vehicleCardContent: {
+    padding: 0,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   vehicleImageContainer: {
     position: 'relative',
@@ -376,106 +534,107 @@ const styles = StyleSheet.create({
   vehicleImage: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
   },
   statusBadge: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    top: Spacing.md,
+    right: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
   },
   statusText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 4,
-    fontFamily: 'OpenSans-SemiBold',
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.xs,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.secondary,
+  },
+  ratingContainer: {
+    position: 'absolute',
+    bottom: Spacing.md,
+    right: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: BrandColors.backgroundOverlay,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
+  },
+  ratingText: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.sm,
+    fontWeight: Typography.fontWeight.semibold,
+    color: BrandColors.secondary,
+    marginLeft: Spacing.xs,
   },
   vehicleInfo: {
-    padding: 16,
+    padding: Spacing.md,
   },
-  vehicleHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  vehicleName: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginBottom: Spacing.xs,
   },
-  vehicleTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    fontFamily: 'Montserrat-SemiBold',
+  vehicleModel: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+    marginBottom: Spacing.xs,
   },
-  dailyRate: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#34C759',
-    fontFamily: 'Montserrat-Bold',
+  vehicleLocation: {
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.sm,
+    color: BrandColors.textSecondary,
+    marginBottom: Spacing.md,
   },
-  vehicleDetails: {
-    marginBottom: 16,
-  },
-  detailRow: {
+  vehicleFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-  },
-  detailText: {
-    fontSize: 14,
-    color: '#666666',
-    marginLeft: 8,
-    fontFamily: 'OpenSans-Regular',
-  },
-  vehicleActions: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#F8F9FA',
+  vehiclePrice: {
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.lg,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.accent,
   },
-  actionButtonText: {
-    fontSize: 12,
-    color: '#666666',
-    marginLeft: 4,
-    fontFamily: 'OpenSans-Regular',
+  moreButton: {
+    padding: Spacing.sm,
   },
-  emptyContainer: {
+
+  // Empty State
+  emptyCard: {
     alignItems: 'center',
-    paddingVertical: 60,
+    justifyContent: 'center',
+    minHeight: 300,
+  },
+  emptyContent: {
+    alignItems: 'center',
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#666666',
-    marginTop: 16,
-    marginBottom: 8,
-    fontFamily: 'Montserrat-SemiBold',
+    fontFamily: Typography.fontFamily.primary,
+    fontSize: Typography.fontSize.xl,
+    fontWeight: Typography.fontWeight.bold,
+    color: BrandColors.textPrimary,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
   emptySubtitle: {
-    fontSize: 16,
-    color: '#999999',
+    fontFamily: Typography.fontFamily.secondary,
+    fontSize: Typography.fontSize.base,
+    color: BrandColors.textSecondary,
     textAlign: 'center',
-    marginBottom: 24,
-    fontFamily: 'OpenSans-Regular',
+    marginBottom: Spacing.xl,
   },
   emptyButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    marginTop: Spacing.md,
   },
-  emptyButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Montserrat-SemiBold',
+
+  // Bottom
+  bottomSpacing: {
+    height: Spacing.xl,
   },
 });

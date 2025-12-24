@@ -1,6 +1,20 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient'; // <-- Import LinearGradient
+import React, { useEffect, useRef, useState } from 'react';
+import {
+    LayoutChangeEvent,
+    NativeScrollEvent,
+    NativeSyntheticEvent,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const ITEM_HEIGHT = 50;
 
 interface Language {
   id: string;
@@ -10,190 +24,218 @@ interface Language {
 }
 
 const languages: Language[] = [
-  { id: 'en', name: 'English', nativeName: 'English', flag: '🇺🇸' },
-  { id: 'ar', name: 'Arabic', nativeName: 'العربية', flag: '🇦🇪' },
-  { id: 'hi', name: 'Hindi', nativeName: 'हिन्दी', flag: '🇮🇳' },
-  { id: 'ur', name: 'Urdu', nativeName: 'اردو', flag: '🇵🇰' },
-  { id: 'bn', name: 'Bengali', nativeName: 'বাংলা', flag: '🇧🇩' },
+  { id: 'hi', name: 'Hindi', nativeName: 'हिंदी', flag: '🇮🇳' },
+  { id: 'ta', name: 'Tamil', nativeName: 'தமிழ்', flag: '🇮🇳' },
+  { id: 'te', name: 'Telugu', nativeName: 'తెలుగు', flag: '🇮🇳' },
+  { id: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ', flag: '🇮🇳' },
+  { id: 'ml', name: 'Malayalam', nativeName: 'മലയാളം', flag: '🇮🇳' },
+  { id: 'en', name: 'English', nativeName: 'English', flag: '🇮🇳' },
+  { id: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી', flag: '🇮🇳' },
+  { id: 'mr', name: 'Marathi', nativeName: 'मराठी', flag: '🇮🇳' },
+  { id: 'bn', name: 'Bengali', nativeName: 'বাংলা', flag: '🇮🇳' },
+  { id: 'pa', name: 'Punjabi', nativeName: 'ਪੰਜਾਬੀ', flag: '🇮🇳' },
 ];
 
-/**
- * Language Selection Screen Component
- * Allows users to select their preferred language
- * Supports multiple languages for better user experience
- */
 export default function LanguageSelectionScreen({ navigation }: any) {
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
+  const [selectedIndex, setSelectedIndex] = useState(5); // Default to English in middle
+  const scrollViewRef = useRef<ScrollView>(null);
+  const lastHapticIndex = useRef(5);
 
-  const handleLanguageSelect = (languageId: string) => {
-    setSelectedLanguage(languageId);
+  // --- State for responsive height calculation ---
+  const [pickerHeight, setPickerHeight] = useState(0);
+
+  // Set initial scroll position once the component has a height
+  useEffect(() => {
+    if (pickerHeight > 0) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: selectedIndex * ITEM_HEIGHT,
+          animated: false,
+        });
+      }, 100);
+    }
+  }, [pickerHeight]); // Rerun only when pickerHeight is determined
+
+  // --- Functions for scrolling and selection ---
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const index = Math.round(offsetY / ITEM_HEIGHT);
+
+    if (index !== lastHapticIndex.current && index >= 0 && index < languages.length) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      lastHapticIndex.current = index;
+      setSelectedIndex(index);
+    }
+  };
+
+  const handleMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const index = Math.round(offsetY / ITEM_HEIGHT);
+
+    if (index >= 0 && index < languages.length) {
+      scrollViewRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: true });
+      setSelectedIndex(index);
+    }
   };
 
   const handleContinue = () => {
-    // TODO: Save selected language to storage
+    const selectedLanguage = languages[selectedIndex];
+    console.log('Selected Language:', selectedLanguage.name);
+
+    // Navigate to phone verification screen
     navigation.navigate('PhoneVerificationScreen');
   };
 
-  const handleSkip = () => {
-    // TODO: Use default language (English)
-    navigation.navigate('PhoneVerificationScreen');
+  // --- Function to get the container height for perfect centering ---
+  const handleLayout = (event: LayoutChangeEvent) => {
+    setPickerHeight(event.nativeEvent.layout.height);
   };
+
+  // --- Dynamic padding calculation for responsiveness ---
+  const PADDING = pickerHeight ? (pickerHeight - ITEM_HEIGHT) / 2 : 0;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Select Language</Text>
-          <Text style={styles.subtitle}>Choose your preferred language</Text>
-        </View>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <View style={styles.headerContainer}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#00242C" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Select a preferred language</Text>
+      </View>
 
-        {/* Language List */}
-        <ScrollView style={styles.languageList} showsVerticalScrollIndicator={false}>
-          {languages.map((language) => (
-            <TouchableOpacity
-              key={language.id}
-              style={[
-                styles.languageItem,
-                selectedLanguage === language.id && styles.selectedLanguageItem,
-              ]}
-              onPress={() => handleLanguageSelect(language.id)}
+      <View style={styles.pickerContainer} onLayout={handleLayout}>
+        {pickerHeight > 0 && ( // Render only after height is known
+          <>
+            {/* Layer 1: The scrollable list of languages */}
+            <ScrollView
+              ref={scrollViewRef}
+              showsVerticalScrollIndicator={false}
+              snapToInterval={ITEM_HEIGHT}
+              decelerationRate="fast"
+              onScroll={handleScroll}
+              onMomentumScrollEnd={handleMomentumScrollEnd}
+              scrollEventThrottle={16}
+              contentContainerStyle={{
+                paddingTop: PADDING,
+                paddingBottom: PADDING,
+              }}
             >
-              <View style={styles.languageInfo}>
-                <Text style={styles.flag}>{language.flag}</Text>
-                <View style={styles.languageNames}>
-                  <Text style={styles.languageName}>{language.name}</Text>
-                  <Text style={styles.nativeName}>{language.nativeName}</Text>
-                </View>
-              </View>
-              {selectedLanguage === language.id && (
-                <View style={styles.checkmark}>
-                  <Text style={styles.checkmarkText}>✓</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+              {languages.map((language, index) => {
+                const isSelected = index === selectedIndex;
+                return (
+                  <View key={language.id} style={styles.itemContainer}>
+                    <Text style={[styles.languageText, isSelected && { opacity: 0 }]}>
+                      {language.nativeName}
+                    </Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
 
-        {/* Action Buttons */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.continueButton} onPress={handleContinue}>
-            <Text style={styles.continueButtonText}>Continue</Text>
-          </TouchableOpacity>
+            {/* Layer 2: The static overlay with highlight and selected text */}
+            <View style={styles.overlay} pointerEvents="none">
+              <View style={styles.highlightPill} />
+              <Text style={styles.selectedLanguageText}>
+                {languages[selectedIndex]?.nativeName}
+              </Text>
+            </View>
 
-          <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-            <Text style={styles.skipButtonText}>Skip</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Layer 3: The top and bottom fades for a professional look */}
+            <LinearGradient
+              colors={['#FFFFFF', 'rgba(255, 255, 255, 0)']}
+              style={[styles.fade, styles.fadeTop]}
+              pointerEvents="none"
+            />
+            <LinearGradient
+              colors={['rgba(255, 255, 255, 0)', '#FFFFFF']}
+              style={[styles.fade, styles.fadeBottom]}
+              pointerEvents="none"
+            />
+          </>
+        )}
+      </View>
+
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={styles.nextButton}
+          onPress={handleContinue}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="arrow-forward" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-  },
-  header: {
-    marginBottom: 32,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1A1A1A',
-    marginBottom: 8,
-    fontFamily: 'Montserrat-Bold',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    fontFamily: 'OpenSans-Regular',
-  },
-  languageList: {
-    flex: 1,
-  },
-  languageItem: {
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
     paddingHorizontal: 16,
-    marginBottom: 8,
-    borderRadius: 12,
-    backgroundColor: '#F8F9FA',
-    borderWidth: 2,
-    borderColor: 'transparent',
+    paddingVertical: 12,
   },
-  selectedLanguageItem: {
-    backgroundColor: '#E3F2FD',
-    borderColor: '#007AFF',
-  },
-  languageInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  flag: {
-    fontSize: 24,
-    marginRight: 16,
-  },
-  languageNames: {
+  backButton: { padding: 8 },
+  headerTitle: {
     flex: 1,
-  },
-  languageName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 2,
-    fontFamily: 'OpenSans-SemiBold',
-  },
-  nativeName: {
-    fontSize: 14,
-    color: '#666666',
-    fontFamily: 'OpenSans-Regular',
-  },
-  checkmark: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#007AFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkmarkText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  buttonContainer: {
-    marginTop: 24,
-  },
-  continueButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  continueButtonText: {
-    color: '#FFFFFF',
+    textAlign: 'center',
     fontSize: 18,
     fontWeight: '600',
-    fontFamily: 'Montserrat-SemiBold',
+    color: '#00242C',
+    marginLeft: -40,
   },
-  skipButton: {
-    paddingVertical: 16,
+  pickerContainer: { flex: 1, justifyContent: 'center' },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  skipButtonText: {
-    color: '#666666',
-    fontSize: 16,
-    fontFamily: 'OpenSans-Regular',
+  highlightPill: {
+    position: 'absolute',
+    width: '90%',
+    height: ITEM_HEIGHT,
+    backgroundColor: '#00242C',
+    borderRadius: 25,
+  },
+  itemContainer: {
+    height: ITEM_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  languageText: { fontSize: 18, color: '#666666', fontWeight: '500' },
+  selectedLanguageText: { fontSize: 20, color: '#FFFFFF', fontWeight: '700' },
+  fade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: '40%', // Adjust fade height
+  },
+  fadeTop: { top: 0 },
+  fadeBottom: { bottom: 0 },
+  buttonContainer: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 10, // Ensure button is on top of the fade
+  },
+  nextButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#00242C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#00D4D4',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });
